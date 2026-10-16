@@ -1,0 +1,15 @@
+# Local runtimes, generated software, credentials and personal measurements
+.tooling/
+firmware/.pio/
+build/
+__pycache__/
+*.pyc
+*.sqlite*
+config.json
+.env
+.env.*
+env_variables.sh
+*.log
+.DS_Store
+co2-history*.csv
+# Enclosure STL/SCAD/previews and validation JSON are intentional deliverables.

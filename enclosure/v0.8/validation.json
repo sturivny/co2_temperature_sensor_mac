@@ -1,0 +1,121 @@
+{
+  "version": "0.8",
+  "board_dimensions_mm": {
+    "sensor": [
+      22.2,
+      13.0,
+      1.5
+    ],
+    "esp32": [
+      24.8,
+      20.6,
+      1.5
+    ]
+  },
+  "parts": [
+    {
+      "file": "base.stl",
+      "dimensions_mm": [
+        78.0,
+        40.0,
+        15.0
+      ],
+      "volume_mm3": 15019.88,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 4228
+    },
+    {
+      "file": "lid.stl",
+      "dimensions_mm": [
+        78.0,
+        40.0,
+        10.1
+      ],
+      "volume_mm3": 5909.78,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 4298
+    },
+    {
+      "file": "fit_sensor.stl",
+      "dimensions_mm": [
+        26.2,
+        17.0,
+        6.8
+      ],
+      "volume_mm3": 1011.88,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 172
+    },
+    {
+      "file": "fit_esp32.stl",
+      "dimensions_mm": [
+        28.8,
+        24.6,
+        15.0
+      ],
+      "volume_mm3": 2108.69,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 696
+    }
+  ],
+  "checks": {
+    "base_lid_intersection_mm3": -0.0,
+    "sensor_pcb_intersection_mm3": 0.0,
+    "esp32_pcb_intersection_mm3": 0.0,
+    "esp32_back_envelope_intersection_mm3": 0.0,
+    "esp32_front_envelope_intersection_mm3": 0.0,
+    "sensor_metal_envelope_intersection_mm3": 0.0,
+    "usb_envelope_intersection_mm3": 0.0,
+    "pcb_vertical_insertion": "20 positions per board, ideal outline only",
+    "lid_vertical_removal": "41 positions, 0..20 mm"
+  },
+  "usb_window_mm": {
+    "width": 9.6,
+    "height": 3.6,
+    "bottom_above_case_bottom": 5.8,
+    "connector_bottom_above_pcb_underside": 1.1,
+    "clearance_each_side": 0.3,
+    "end_radius": 1.8,
+    "profile": "capsule_full_radius",
+    "centre_y": 19.3
+  },
+  "enclosure_mm": {
+    "length": 78.0,
+    "width": 40.0,
+    "height": 17.0,
+    "corner_radius": 3.0,
+    "edge_radius": 0.6,
+    "sensor_top_to_lid_clearance": 2.0
+  },
+  "fastener_mm": {
+    "nominal_shank_diameter": 2.0,
+    "overall_length_including_head": 10.0,
+    "measured_head_diameter": 4.6,
+    "countersink_diameter": 4.8,
+    "assumed_head_angle_deg": 90,
+    "clearance_hole_diameter": 2.4,
+    "pilot_diameter": 1.7,
+    "pilot_depth": 10.0,
+    "nominal_tip_to_pilot_bottom": 1.9
+  },
+  "controller_mount_mm": {
+    "pcb_length": 24.8,
+    "pcb_width": 20.6,
+    "pcb_edge_x": 76.0,
+    "inner_usb_wall_x": 76.0,
+    "usb_front_x": 78.0,
+    "outer_wall_x": 78.0,
+    "usb_recess": 0.0,
+    "corner_cut_assumption": 1.0,
+    "support_inset_from_ends": 2.0,
+    "rear_stop_clearance": 0.15
+  }
+}
