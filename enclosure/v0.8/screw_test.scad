@@ -1,0 +1,12 @@
+// Screw fit test, mm. part: base or cap. Cone assumes 90 degrees.
+part="cap";
+module base(){difference(){
+translate([0, 0, 0]) cube([14, 14, 12]);
+translate([7, 7, 2]) cylinder(h=10.2,r=0.85,$fn=48);
+}}
+module cap(){difference(){
+translate([0, 0, 0]) cube([14, 14, 2]);
+translate([7, 7, -0.1]) cylinder(h=2.2,r=1.2,$fn=48);
+translate([7, 7, 0.8]) cylinder(h=1.3,r1=1.2,r2=2.5,$fn=96);
+}}
+if(part=="base") base(); else cap();

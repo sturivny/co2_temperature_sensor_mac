@@ -1,0 +1,38 @@
+[
+  {
+    "file": "base.stl",
+    "open_profile_area_mm2": 31.77467,
+    "analytic_capsule_area_mm2": 31.77876,
+    "material_blocking_profile_mm3": 4e-08,
+    "filled_corner_fraction": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  {
+    "file": "fit_esp32.stl",
+    "open_profile_area_mm2": 31.77467,
+    "analytic_capsule_area_mm2": 31.77876,
+    "material_blocking_profile_mm3": 3e-08,
+    "filled_corner_fraction": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  {
+    "file": "fit_esp32_snaps.stl",
+    "open_profile_area_mm2": 31.77467,
+    "analytic_capsule_area_mm2": 31.77876,
+    "material_blocking_profile_mm3": 3e-08,
+    "filled_corner_fraction": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  }
+]

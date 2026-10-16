@@ -1,0 +1,50 @@
+{
+  "parts": [
+    {
+      "file": "screw_test_base.stl",
+      "dimensions_mm": [
+        14.0,
+        14.0,
+        12.0
+      ],
+      "volume_mm3": 2329.37,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 204
+    },
+    {
+      "file": "screw_test_cap.stl",
+      "dimensions_mm": [
+        14.0,
+        14.0,
+        2.0
+      ],
+      "volume_mm3": 375.73,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 496
+    }
+  ],
+  "screw": {
+    "diameter_mm": 2,
+    "overall_length_mm": 10,
+    "head_diameter_mm": 4.6,
+    "assumed_angle_degrees": 90
+  },
+  "holes": {
+    "countersink_diameter_mm": 4.8,
+    "through_diameter_mm": 2.4,
+    "pilot_diameter_mm": 1.7,
+    "pilot_depth_mm": 10
+  },
+  "full_case": {
+    "outside_height_mm": 17,
+    "head_face_height_if_90_deg_mm": 16.9,
+    "screw_tip_mm": 6.9,
+    "pilot_bottom_mm": 5,
+    "tip_clearance_mm": 1.9
+  },
+  "notes": "Assumes 10 mm measured including countersunk head. Thread engagement and actual angle require test."
+}
