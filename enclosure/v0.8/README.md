@@ -1,85 +1,148 @@
-# Корпус CO₂ — v0.8: контроллер у USB-стенки, опоры на прямых краях
+# CO₂ enclosure v0.8 — flush USB and straight-edge PCB supports
 
-## Исправления после реальной примерки
+[Русская версия](../../docs/ru/ENCLOSURE.md) · [Project guide](../../README.md)
 
-Пользователь сообщил: образец датчика подошёл идеально; у контроллера опоры не учитывали форму углов, а USB был слишком утоплен. Новый замер длины контроллера — **24,8 мм**, ширина остаётся **20,6 мм**. На фото углы скруглены, пользователь описал их примерно как срез 1 × 1 мм под 45°. Точный радиус не измерен.
+## Geometry after the physical fit test
 
-В v0.8:
+The sensor sample fitted correctly. The earlier controller sample supported
+the corners poorly and recessed the USB connector. The final measured controller
+is **24.8 × 20.6 mm**. Its corners are modeled as approximately 1 × 1 mm
+45° chamfers; the actual rounded corner radius was not measured.
 
-- Контроллер задан как 24,8 × 20,6 мм. Для изображения и проверки принят срез углов 1 × 1 мм; это приближение, не точный радиус с фотографии.
-- Четыре нижние опоры перенесены под прямые длинные края. Начало площадок — в 2 мм от торцов, длина каждой 2 мм, заход под текстолит 0,8 мм. Уголки платы больше не являются опорными точками.
-- Убраны продольные выступы упоров перед USB. Текстолит со стороны USB прилегает к внутренней поверхности стенки. Сзади есть отдельный упор посередине прямого торца, с зазором 0,15 мм.
-- Внутренняя стенка корпуса расположена на x=76 мм, край PCB тоже на x=76 мм. Разъём выступает на 2 мм и заканчивается на внешней поверхности корпуса x=78 мм: **номинальное утопление USB равно нулю**. В пробном образце использована та же геометрия.
-- Вместе с платой сдвинуты ответные выступы крышки и окно OLED. Боковые защёлки в пробном образце сохранены.
-- Крепление датчика не менялось. Оба STL образца датчика побайтно совпадают с v0.7 — повторно печатать их не требуется.
-- Крышка и стойки адаптированы к пользовательским винтам **2 × 10 мм с конусной головкой Ø4,6 мм**.
+In v0.8:
 
-## Что печатать сначала
+- Four lower supports contact the straight long PCB edges. Each starts 2 mm
+  from an end, is 2 mm long and overlaps the PCB by 0.8 mm. Corners are not used
+  as support points.
+- Stops in front of the USB edge were removed. The PCB's USB-side edge sits
+  against the inside wall. A separate centered rear stop has 0.15 mm clearance.
+- Both the inside wall and PCB edge are at x=76 mm. The connector protrudes
+  2 mm and ends at the outside wall, x=78 mm: **nominal USB recess is zero**.
+  The fit sample uses the same geometry.
+- Lid retention features and the OLED opening move with the controller. The
+  fit sample retains its side snap tabs.
+- Sensor mounts are unchanged. Both sensor sample STLs are byte-identical to
+  v0.7; reprinting them is unnecessary if that version already fitted.
+- Lid and posts accommodate **2 × 10 mm countersunk screws, head Ø4.6 mm**.
 
-**`fit_esp32_snaps.stl` — новый образец контроллера с защёлками и USB-стенкой.** Его габарит 28,8 × 24,6 × 15 мм. Для проверки нового расположения платы достаточно этого файла. Не использовать старый образец v0.7.
+The user subsequently confirmed that the final sample fitted correctly and
+started printing the full enclosure. See [validation](../../VALIDATION.md) for
+separate electrical checks and remaining limits.
 
-При установке сориентировать USB к стенке, развести защёлки, опустить PCB на четыре площадки. Передний край текстолита должен подходить непосредственно к внутренней поверхности USB-стенки. После отпускания защёлок плата должна держаться без давления на экран или разъём. Проверить, что пластиковые опоры не попали под припой или отдельные компоненты. Они расположены на прямых краях, но точное положение всех элементов с фото не моделировалось.
+## Fit samples
 
-Подключить реальный кабель и проверить полную посадку. В проекте убрано утопление разъёма; подтвердить это необходимо на печати. Если пластик мешает, не изгибать плату и не проталкивать штекер силой. Для снятия развести защёлки и поднять плату за текстолит.
+Start with **`fit_esp32_snaps.stl`**, the controller sample with snap tabs and a
+USB wall. Its bounds are 28.8 × 24.6 × 15 mm. Use v0.8 rather than an earlier sample.
 
-Второй вариант `fit_esp32.stl` — те же новые нижние опоры и стенка, но без боковых защёлок.
+Point USB toward the wall, gently spread the tabs and lower the PCB onto its
+four supports. The PCB's front edge should reach the inside USB wall. Releasing
+the tabs should retain the PCB without loading the glass or connector. Check
+that supports do not land on solder or components: their exact shapes were
+not fully reconstructed from photographs.
 
-## Размеры и форма корпуса
+Connect the actual cable and check full insertion. If plastic obstructs it,
+do not bend the board or force the plug. To remove the PCB, spread the tabs
+and lift by the PCB edges. `fit_esp32.stl` has the same supports and wall
+without the side snap tabs.
 
-Полный корпус **78 × 40 × 17 мм**. Углы R3 мм, наружные горизонтальные кромки R0,6 мм. Дно 2 мм, нижняя поверхность PCB на высоте 5 мм, текстолит 1,5 мм. Крышка 2 мм, над принятым габаритом датчика остаётся 2 мм.
+## Enclosure dimensions
 
-Окно USB-C — капсула **9,6 × 3,6 мм, концы R1,8 мм**. Размер металла — пользовательский 9 × 3 мм, зазор по контуру 0,3 мм. Нижний край металла на 1,1 мм выше нижней поверхности PCB: металл занимает высоты 6,1–9,1 мм, окно — 5,8–9,4 мм. Вертикальное положение окна сохранено, изменена только глубина установки платы. Стандартный профиль сверялся с USB-IF Figure 3-1; точная каталожная модель разъёма неизвестна.
+Assembled bounds: **78 × 40 × 17 mm**. Corners R3, outer horizontal edges R0.6.
+The floor is 2 mm thick, PCB bottom is at z=5 mm, PCB thickness is 1.5 mm and
+the lid skin is 2 mm thick. There is 2 mm clearance above the modeled sensor.
 
-Датчик: PCB 22,2 × 13 мм, общая высота 8 мм, металлическая часть 8 × 8 мм. Размеры и положение датчика сохранены. Высота контроллера и положения стекла взяты из прежних замеров; стекло 12 × 12 мм. Провода припаиваются прямо, гребёнки не устанавливаются. Батарея и SD не предусмотрены; питание от power bank, журнал планируется во flash ESP32 с выгрузкой на Mac. Прошивка и приложение реализованы в корне репозитория; см. основной README.
+The USB-C opening is a **9.6 × 3.6 mm capsule, end radius R1.8**. It accommodates
+the measured 9 × 3 mm shell with 0.3 mm contour clearance. The metal shell's
+bottom is 1.1 mm above the PCB bottom: shell z=6.1–9.1 mm, opening z=5.8–9.4 mm.
+The profile was compared with USB-IF Figure 3-1; the connector's exact catalog
+part is unknown. Vertical placement was preserved while the PCB depth changed.
 
-## Винты и зенковка
+Sensor PCB: 22.2 × 13 mm, overall height 8 mm, metal body 8 × 8 mm. Its position
+and dimensions are unchanged. The controller glass is modeled as 12 × 12 mm
+using the user's earlier measurements. Wires are directly soldered; headers,
+an internal battery and SD card are not included. Power comes from USB, with
+history in ESP32 flash and download to the Mac. Firmware and app are in the
+repository root.
 
-Приняты винты диаметром 2 мм, **полной длиной 10 мм вместе с потайной головкой**, диаметр головки 4,6 мм. Угол конуса принят **90°**, пользователь его не измерял. Зенковка в крышке имеет диаметр 4,8 мм, сквозное отверстие 2,4 мм. Конус глубиной 1,2 мм оставляет 0,8 мм материала до нижней поверхности крышки вокруг сквозного отверстия.
+## Screws and countersinks
 
-Пилотные отверстия в стойках: диаметр 1,7 мм, глубина 10 мм. При принятой геометрии головка садится примерно на 0,1 мм ниже поверхности крышки; между концом винта и дном пилотного отверстия остаётся около 1,9 мм. Расчёт основан на длине 10 мм включая головку и конусе 90°.
+The design assumes 2 mm screws with **10 mm overall length including the
+countersunk head**, head diameter 4.6 mm. The cone angle is assumed to be
+**90°**, not measured. Lid countersinks are Ø4.8 mm with Ø2.4 mm through holes.
+A 1.2 mm cone depth leaves 0.8 mm of lid material around the through hole.
 
-**Сначала проверить винт:** напечатать `screw_test_base.stl` и `screw_test_cap.stl`. Установить маленькую крышку на блок и вкрутить один свой винт вручную. Проверить, что конус садится, головка не торчит и винт стягивает детали, не раскалывая пластик и не упираясь в дно. Этот тест не требует электроники. Если 10 мм измерены без головки или конус отличается от 90°, длину отверстий/зенковку надо скорректировать по фактическому винту.
+Pilot holes in posts are Ø1.7 mm, 10 mm deep. Under these assumptions the head
+sits about 0.1 mm below the lid and the screw tip has about 1.9 mm clearance
+to the pilot-hole bottom.
 
-Отверстие 1,7 мм предполагает ввинчивание в пластик. Тип резьбы винта не установлен, гайки и резьбовые вставки не предусмотрены. Усилие и пригодность резьбы подтверждает только маленький тест. При заметном сопротивлении не затягивать сильнее, чтобы не сломать стойку.
+Before assembly, print **`screw_test_base.stl` and `screw_test_cap.stl`**. Fit the
+small cap to the block and insert one real screw by hand. Check seating,
+clamping, clearance and cracking. No electronics are needed. If the measured
+10 mm excludes the head or its angle differs from 90°, revise the geometry.
+The Ø1.7 mm pilot assumes threading directly into plastic; the thread type
+was not identified and no nuts or inserts are modeled. Do not force a screw
+that encounters substantial resistance.
 
-## Печать
+## Printing and assembly
 
-Масштаб 100%, миллиметры. Основание/образцы — дном на стол; крышка корпуса в STL уже перевёрнута для печати плоской внешней стороной на стол. Крышку образца винта печатать плоской нижней стороной на стол.
+Use millimeters and 100% scale. Print the base and samples bottom-down.
+The full lid STL is already inverted with its flat outside face on the bed.
+Print the screw-test cap with its flat lower face on the bed.
 
-Стартовые настройки: сопло 0,4 мм, слой 0,2 мм, 3 периметра. Для защёлок предпочтителен PETG; PLA — для осторожной первичной примерки. Не заполнять поддержкой прорези гибких защёлок. Проверить в слайсере тонкие стенки, скосы и мост над USB. После печати прорези должны быть свободны, без слипания первого слоя.
+Starting settings: 0.4 mm nozzle, 0.2 mm layers, three perimeters. PETG is
+preferred for flexible snap tabs; PLA can be used for a careful initial fit
+check. Do not fill the flexible tab slots with support material. Inspect thin
+walls, chamfers and the USB bridge in the slicer; tab slots must remain free
+of first-layer fusion.
 
-Боковые защёлки по-прежнему находятся **только на пробных образцах**. В полном корпусе нижние опоры работают вместе с удерживающими выступами крышки. Их новые места также перенесены на прямые края. Провода и припой не должны попадать под опорные площадки и концы выступов.
+Side snap tabs are **only on fit samples**. In the full enclosure, lower supports
+work with lid retention features, also positioned over straight PCB edges.
+Keep wires and solder clear of supports and retention tips.
 
-## Файлы
+## Files
 
-- `fit_esp32_snaps.stl` — рекомендуемый новый образец контроллера.
-- `fit_esp32.stl` — новый образец без защёлок.
-- `base.stl`, `lid.stl` — обновлённый корпус, основание 78 × 40 × 15 мм, крышка в положении для печати 78 × 40 × 10,1 мм; суммарная высота корпуса 17 мм.
-- `fit_sensor_snaps.stl`, `fit_sensor.stl` — сохранённые образцы датчика, перепечатывать не требуется.
-- `screw_test_base.stl` — блок для винта 14 × 14 × 12 мм; `screw_test_cap.stl` — крышка с зенковкой 14 × 14 × 2 мм.
-- `enclosure.scad`, SCAD образцов, `screw_test.scad` — геометрические исходники.
-- `preview_controller.png` — образец контроллера пустой и с условной моделью платы; `preview.png` — корпус из STL; `preview_samples.png` — оба образца.
-- `build_enclosure.py`, `build_samples.py`, `build_fastener_test.py` — генераторы (Python, numpy, manifold3d, trimesh, matplotlib, Pillow). STL созданы напрямую геометрическим ядром; SCAD отдельно в OpenSCAD не компилировался.
-- `validation*.json` — проверки; `check_mount.py`, `check_usb_profile.py` — дополнительные проверки посадки и USB-профиля. Проверка неизменности датчика использует сохранённые контрольные суммы; соседняя папка v0.7 не нужна.
+- `fit_esp32_snaps.stl`: recommended controller fit sample.
+- `fit_esp32.stl`: controller sample without snap tabs.
+- `base.stl`, `lid.stl`: full enclosure. Base bounds are 78 × 40 × 15 mm;
+  lid bounds in print orientation are 78 × 40 × 10.1 mm, including internal
+  retention features. Assembled external height is 17 mm.
+- `fit_sensor_snaps.stl`, `fit_sensor.stl`: unchanged sensor samples.
+- `screw_test_base.stl`: 14 × 14 × 12 mm test block.
+- `screw_test_cap.stl`: 14 × 14 × 2 mm countersunk test cap.
+- `enclosure.scad`, sample SCAD files, `screw_test.scad`: geometry sources.
+- `preview_controller.png`: empty sample and simplified controller model.
+  `preview.png`: enclosure from STL. `preview_samples.png`: both fit samples.
+- `build_enclosure.py`, `build_samples.py`, `build_fastener_test.py`: Python
+  generators using numpy, manifold3d, trimesh, matplotlib and Pillow. STL was
+  generated directly by the geometry kernel; SCAD was not independently
+  compiled in OpenSCAD.
+- `validation*.json`: digital check reports. `check_mount.py` and
+  `check_usb_profile.py`: additional mount and USB checks. Saved sensor fixture
+  hashes remove the dependency on a neighboring v0.7 directory.
 
-## Проверки и границы подтверждения
+## Validation and limits
 
-Все восемь STL повторно открыты после экспорта: замкнутые поверхности, согласованные грани, по одному связному телу. Пересечений основания/крышки и принятых габаритов PCB/компонентов нет. Проверены вертикальная установка идеализированной PCB и снятие крышки.
+All eight exported STLs were reopened: closed surfaces, consistent winding,
+one connected body each. Digital checks found no intersections between the
+base/lid and assumed PCB/component envelopes; idealized vertical PCB insertion
+and lid removal were checked.
 
-Суммарная площадь опирания контроллера на прямые края — 6,4 мм². Она сохраняется при условных срезах углов 1, 1,5 и 2 мм и при скруглении R2 мм. Это показывает независимость опор от формы уголков в этом диапазоне. Положение всех деталей и припоя не моделировалось.
+Total controller bearing area is 6.4 mm². It is unchanged with modeled corner
+chamfers of 1, 1.5 and 2 mm and with true R2 rounded corners. This shows that
+supports do not depend on corners within that range. Exact solder and component
+placement was not modeled.
 
-В образце и корпусе номинальный торец USB находится на наружной поверхности стенки. Сечение отверстия повторно проверено непосредственно в STL. Геометрия образцов датчика идентична уже примеренной версии, но электрические измерения и работа в закрытом корпусе ещё не проверены. Физическая посадка контроллера, кабеля и винтов, упругость защёлок, усадка печати и резьба в пластике остаются на этапе пробной печати.
+The USB end is nominally on the outside wall in both sample and enclosure;
+the opening profile was checked directly in the STL. Physical fit confirmation
+applies to the user's sample. It does not validate every cable, print shrinkage,
+snap lifetime or screw/thread combination. Sensor, OLED, USB, flash history and
+Wi-Fi were later tested separately; accuracy inside the fully assembled
+printed enclosure remains unverified.
 
-## Текущее подтверждение
+## Reproduce the geometry
 
-После v0.8 пользователь подтвердил идеальную посадку образца и начал печать корпуса.
-Датчик, OLED, USB, журнал и Wi-Fi затем проверены отдельно; детали в ../../VALIDATION.md.
-Прежние оговорки о физической посадке выше описывают этап разработки и не заменяют
-это подтверждение. Проверка измерений внутри полностью собранного корпуса ещё не проведена.
-
-## Воспроизведение
-
-Из корня репозитория после установки requirements-cad.txt:
+Use Python 3.12+ and install the pinned `requirements-cad.txt` dependencies.
+Run these commands from the repository root:
 
 ```bash
 .tooling/venv/bin/python enclosure/v0.8/build_enclosure.py
@@ -88,3 +151,6 @@
 .tooling/venv/bin/python enclosure/v0.8/check_mount.py
 .tooling/venv/bin/python enclosure/v0.8/check_usb_profile.py
 ```
+
+Generators overwrite the delivered STL, SCAD, previews and reports. Review the
+resulting diff, slicer geometry and previews before accepting regenerated files.

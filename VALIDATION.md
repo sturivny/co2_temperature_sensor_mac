@@ -1,43 +1,57 @@
-# Проверка 16 октября 2026
+# Validation — 16 October 2026
 
-- Прошивка собрана: ESP32-C3, 4 MiB flash, Arduino ESP32 2.0.17, PlatformIO espressif32 6.12.0.
-- Перед первой загрузкой сохранена заводская flash (4 MiB), локально в `.tooling/backup`.
-- Запись прошивки на реальную плату завершилась проверкой хешей.
-- Реальный датчик отвечает на 0x62, OLED найден сканированием на 0x3C, шина GPIO5/6.
-- Получены реальные CO₂, температура, влажность; например 418 ppm / 25,18 °C / 41,54 %.
-  Это проверка получения данных, не метрологическая проверка точности датчика.
-- Журнал реальной платы сообщил healthy=true, capacity=32768; первую запись удалось
-  прочитать и сохранить нативным транспортом приложения Mac (`--usb-check`).
-- Хостовые тесты C++: эталоны CRC датчика и журнала, 32 позиции обрыва записи,
-  1800 записей с кольцевым переполнением, восстановление после перезапуска,
-  пагинация, повреждение записи — PASS.
-- Нативное приложение Swift: компиляция, локальная подпись, тест SQLite,
-  повторный импорт без дубликатов, восстановление времени, учёт пропусков,
-  CSV — PASS. USB-чтение статуса и журнала реальной платы — PASS.
-- Для запуска после прошивки этой платы требуется ручное нажатие RST.
-- Прошивка 0.1.1 исправляет восстановление аппаратной I²C-шины после настройки
-  контактов библиотекой U8g2. После обновления одновременно sensor_started=true,
-  oled_found=true, error пустой; журнал сохранился и вырос с 1 до 2 записей.
-- Пользователь подтвердил: цифры на OLED видны. Автоматический перезапуск через
-  watchdog после загрузки последней версии также прошёл успешно.
-- Wi-Fi настроен: подтверждено подключение к домашней сети. С Mac по mDNS
-  успешно прочитаны авторизованные /api/status и /api/history; реальные
-  показания и история получены через сеть. unix_s заполнен.
-- Работа с конкретным power bank после отключения USB от Mac ещё не проверена.
+[Русская версия](docs/ru/VALIDATION.md)
 
-## Перенос в репозиторий
+## Hardware and software evidence
 
-Проверено из нового checkout 16 октября 2026:
+- Firmware built for ESP32-C3 with 4 MiB flash, Arduino ESP32 2.0.17 and
+  PlatformIO espressif32 6.12.0.
+- The original 4 MiB factory flash was backed up locally before the first upload
+  in `.tooling/backup`; it is excluded from Git.
+- Firmware upload to the physical board completed with hash verification.
+- The sensor responded at 0x62 and the OLED was found at 0x3C on GPIO5/6.
+- Real readings were received, for example 418 ppm / 25.18 °C / 41.54% RH.
+  This verifies data acquisition, not metrological accuracy.
+- The device journal reported `healthy=true`, `capacity=32768`. Its first record
+  was read and saved through the native Mac USB transport (`--usb-check`).
+- C++ host checks passed: sensor/journal CRC reference vectors, 32 interrupted
+  write positions, 1,800 writes through ring wrap, reboot recovery, pagination
+  and corrupted records.
+- Native Swift checks passed: compilation, local signing, SQLite storage,
+  duplicate import, time recovery, gap accounting and CSV export. Reading real
+  device status and history through the app's USB transport also passed.
+- The initial upload workflow needed a physical RST press. The latest upload
+  also successfully restarted automatically using the watchdog.
+- Firmware 0.1.1 fixes hardware I²C recovery after U8g2 configures GPIO modes.
+  After the update, `sensor_started=true`, `oled_found=true`, and `error` was empty.
+  Existing history survived and grew from one to two records.
+- The user confirmed that readings were visible on the OLED.
+- Wi-Fi association was confirmed. Authenticated `/api/status` and `/api/history`
+  were read from the Mac using mDNS; real readings and history arrived over the
+  network, and `unix_s` was populated.
+- Power-bank operation after disconnecting Mac USB has not yet been verified.
 
-- `tools/check.py`: синтаксис Python, C++-тесты журнала, сборка и локальная
-  подпись приложения Mac, SQLite/CSV self-test — PASS.
-- Сборка прошивки с закреплёнными зависимостями — PASS (RAM 42436 байт,
-  Flash 857652 байта по отчёту PlatformIO).
-- `check_mount.py` и `check_usb_profile.py` — PASS. Проверка креплений больше
-  не требует соседней папки v0.7; сохранены контрольные суммы примеренного датчика.
-- Ссылки между локальными документами проверены.
-- Известные ключи доступа, пароль Wi-Fi, настройки Mac, SQLite-история и заводская
-  flash не входят в публикуемые файлы. Выполнена проверка состава и известных
-  секретов без вывода их значений.
-- Во время переноса устройство повторно не прошивалось. Данные о работе платы
-  выше относятся к выполненным ранее реальным аппаратным проверкам.
+## Repository handoff
+
+Checks run from the new checkout on 16 October 2026:
+
+- `tools/check.py`: Python syntax, journal C++ tests, Mac app build/signing and
+  SQLite/CSV self-test — PASS.
+- Firmware build with pinned dependencies — PASS: 42,436 bytes RAM and 857,652
+  bytes flash as reported by PlatformIO.
+- `check_mount.py` and `check_usb_profile.py` — PASS. Mount checks now use saved
+  sensor fixture hashes and do not require the old v0.7 directory.
+- Eight STL files: closed meshes, consistent winding, one connected body each.
+- Local documentation links were checked.
+- Known access keys, the Wi-Fi password, Mac configuration, SQLite history and
+  factory flash were excluded. Deliverables were scanned for known credentials
+  without printing their values.
+- The device was not reflashed during the repository transfer. Hardware evidence
+  above refers to the earlier physical tests, not simulated repository checks.
+
+## Remaining limitations
+
+No reference-gas calibration, temperature-offset calibration or accuracy testing
+inside the fully assembled enclosure has been performed. Fit confirmation and
+mesh validation do not establish sensor accuracy, fastener lifetime, snap fatigue,
+or compatibility with every printer, cable and power bank.

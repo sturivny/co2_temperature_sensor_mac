@@ -1,24 +1,26 @@
 # CO₂ Monitor — ESP32-C3 + SCD4x
 
-Показания CO₂, температуры и влажности на OLED и в строке меню Mac.
-Плата сохраняет историю во внутренней flash, даже когда Mac спит.
+[Русская версия](docs/ru/README.md)
 
-## Что находится в репозитории
+CO₂, temperature and humidity readings on an OLED and in the Mac menu bar.
+The device records history in its internal flash, even while the Mac is asleep.
 
-- `firmware/` — прошивка ESP32-C3.
-- `macos/` — приложение для строки меню Mac.
-- `enclosure/v0.8/` — STL, SCAD, генераторы, образцы и превью корпуса.
-- [Аппаратная часть](docs/HARDWARE.md), [архитектура](docs/ARCHITECTURE.md),
-  [протокол](docs/PROTOCOL.md), [результаты проверок](VALIDATION.md).
-- [Инструкции для AI](AGENTS.md).
+## Repository contents
 
-![Корпус](enclosure/v0.8/preview.png)
+- `firmware/` — ESP32-C3 firmware.
+- `macos/` — native Mac menu-bar app.
+- `enclosure/v0.8/` — printable STL files, SCAD sources, generators, fit samples and previews.
+- [Hardware](docs/HARDWARE.md), [architecture](docs/ARCHITECTURE.md),
+  [device protocol](docs/PROTOCOL.md), [validation](VALIDATION.md).
+- [AI contributor instructions](AGENTS.md).
 
-## Подготовка после клонирования
+![Enclosure](enclosure/v0.8/preview.png)
 
-Нужны macOS на Apple Silicon, Python 3.10+ и инструменты Xcode Command Line Tools
-(`swiftc`, `clang++`, `codesign`). Готовые приложения, локальные ключи и данные
-не включены в Git. Из корня клона:
+## Set up a fresh checkout
+
+Requirements: macOS on Apple Silicon, Python 3.10+, and Xcode Command Line Tools
+(`swiftc`, `clang++`, `codesign`). Generated apps, credentials and personal
+measurements are excluded from Git. Run all commands from the repository root:
 
 ```bash
 python3 tools/setup.py
@@ -26,79 +28,79 @@ python3 tools/setup.py
 .tooling/venv/bin/python tools/check.py
 ```
 
-Подготовка загружает PlatformIO и зависимости Python. Для сборки прошивки
-PlatformIO дополнительно скачает платформу и библиотеки; для обычного запуска
-уже прошитого устройства повторно прошивать его не нужно.
+Setup installs PlatformIO and Python tools. Building the firmware additionally
+downloads the pinned platform and libraries. You do not need to flash a device
+again just to use it with a fresh Mac app build.
 
-## Подключение
+## Wiring
 
-| Контакт датчика | Контакт ESP32-C3 |
+| Sensor pin | ESP32-C3 pin |
 |---|---|
 | GND | GND |
 | VDD | 3V3 |
 | SDA | GPIO5 |
 | SCL | GPIO6 |
 
-OLED на этой версии платы также использует GPIO5/6. Адрес датчика —
-0x62, OLED — 0x3C. Расположение контактов определять по маркировке платы,
-а не по ориентации фотографии. Питание контроллера — через USB-C от Mac
-или power bank; это не питание датчика напрямую от USB 5 В.
+The onboard OLED shares GPIO5/6. The sensor address is 0x62; the OLED is 0x3C.
+Use the board's pin labels rather than the orientation of a photograph.
+Power the controller through USB-C from a Mac or power bank; the sensor's VDD
+is connected to 3V3, not directly to USB 5 V.
 
-## Запуск на Mac
+## Run on a Mac
 
-1. Подключить плату кабелем USB с передачей данных.
-2. Если после прошивки сохранилась заводская надпись, нажать и отпустить RST.
-3. Открыть `Открыть монитор.command` в этой папке. В строке меню появится CO₂.
-4. Первое измерение ожидается примерно через 5 секунд, первая запись истории —
-   через минуту. Если плата недоступна или показания устарели, приложение показывает «—».
-5. В меню доступны графики за сутки / неделю, экспорт CSV и папка истории.
+1. Connect the controller with a USB data cable.
+2. If the factory screen remains after flashing, press and release RST.
+3. Open `Open Monitor.command` in the repository root. CO₂ appears in the menu bar.
+4. Allow about five seconds for the first measurement and one minute for the
+   first history record. Unavailable or stale readings appear as “—”.
+5. Use the menu for 24-hour / 7-day graphs, CSV export and the history folder.
 
-Приложение собрано для Apple Silicon, macOS 13+. Проверка на других версиях
-macOS отдельно не проводилась. Это локальная сборка с ad-hoc подписью.
-Не запускайте одновременно приложение и USB-диагностику: они используют один порт.
+The app targets Apple Silicon and macOS 13+. Other macOS versions have not been
+verified separately. Builds are locally ad-hoc signed. The existing app interface
+and provisioning prompts are in Russian; this change translates the documentation.
+Do not run the app and a USB diagnostic simultaneously: they share one port.
+The original Russian launcher names remain available for compatibility.
 
-## Работа от power bank
+## Use a power bank
 
-При первом подключении к Mac открыть `Настроить Wi-Fi.command`.
-Ввести имя сети 2,4 ГГц и пароль в локальном окне Terminal; пароль вводится скрыто.
-После настройки перезапустить CO2 Monitor. Настройка Wi-Fi требует Python-окружение
-`.tooling`, созданное в текущей папке проекта; перенос одного приложения его не переносит.
+While connected to the Mac over USB, open `Configure Wi-Fi.command`.
+Enter the 2.4 GHz network name and password locally in Terminal; password input
+is hidden. Restart CO2 Monitor after configuration. Provisioning needs the
+checkout-local `.tooling` environment; copying only the app does not include it.
 
-После этого можно питать прибор от power bank: связь с Mac идёт через домашний
-Wi-Fi. Mac и датчик должны находиться в доступной друг для друга сети.
-Если Mac спит или его нет дома, прибор продолжает вести журнал. При следующем
-подключении приложение догружает сохранённые записи без дубликатов.
-Проверить конкретный power bank: некоторые отключают выход при малой нагрузке.
+You can then power the device from a power bank and communicate over home Wi-Fi.
+The Mac and sensor must be able to reach each other on the network. Recording
+continues while the Mac is asleep or away. The next connection downloads retained
+records without duplicates. Test your specific power bank: some turn off their
+output when the load is low.
 
-## История и время
+## History and timestamps
 
-- Измерения датчика — примерно раз в 5 секунд.
-- Запись в flash — среднее успешных измерений за минуту.
-- Журнал 1 МиБ, до 32 768 записей: примерно 22 дня 18 часов. Это кольцевой
-  буфер: затем старые записи постепенно заменяются новыми, секторами по 128 записей.
-- Mac сохраняет выгруженные данные в SQLite без ограничения сроком буфера.
-- Путь: `~/Library/Application Support/CO2Monitor/history.sqlite`.
-- Последняя незавершённая минута при отключении питания не сохраняется.
-  Записи имеют CRC; незавершённая запись flash после сбоя пропускается.
-- Часы синхронизируются через интернет по Wi-Fi или при подключении приложения
-  по USB. До синхронизации сохраняются номер запуска и время с начала запуска.
-  Mac восстанавливает время таких записей, если видел этот же запуск.
-- Если питание отключили до любой синхронизации и Mac не видел тот запуск,
-  его абсолютное время восстановить нельзя. Измерения остаются в архиве и CSV
-  с пустой календарной датой. Для гарантированной даты после отключений питания
-  понадобится RTC с резервным питанием либо доступный сервер времени.
-- При заполнении буфера до выгрузки приложение отмечает пропуск истории.
-  Отсутствующие измерения не заменяются выдуманными значениями.
+- Sensor measurements: approximately every five seconds.
+- Flash records: one average of successful readings per minute.
+- A 1 MiB ring stores up to 32,768 records, approximately 22 days 18 hours.
+  At capacity, the oldest records are replaced in sectors of 128 records.
+- The Mac archives downloaded history in SQLite beyond the device's retention period.
+- Location: `~/Library/Application Support/CO2Monitor/history.sqlite`.
+- A power cut loses the unfinished minute. Records have CRC checks; torn flash
+  records are skipped after recovery.
+- Time synchronizes through Wi-Fi/internet or a USB app connection. Before
+  synchronization, the device stores a boot ID and uptime. The Mac can recover
+  calendar time if it observed that same boot.
+- If power is lost before synchronization and the Mac never observed that boot,
+  its absolute time cannot be recovered. Measurements remain in the archive and
+  CSV with an empty calendar date. Guaranteed dates after arbitrary power cuts
+  require a battery-backed RTC or an available time server.
+- If the ring overwrites records before download, the app reports a history gap.
+  Missing measurements are never replaced with invented data.
 
-Пароль Wi-Fi и ключ API хранятся в NVS контроллера; пароль не записывается
-в настройки Mac. Ключ и адрес находятся в локальном `config.json` с правами 600.
-HTTP API использует Bearer-ключ, работает без TLS в локальной сети.
-Не публиковать API в интернет. Резервная копия заводской flash находится в
-`.tooling/backup/`; она не входит в исходный архив.
+The Wi-Fi password and API token are stored in device NVS. The Mac configuration
+stores only the token and address in a local `config.json`, mode 0600. The HTTP
+API uses a Bearer token without TLS on the local network; do not expose it to
+the internet. A factory flash backup, if taken, stays in `.tooling/backup/`
+and is not included in Git or source archives.
 
-## Диагностика
-
-Из папки проекта:
+## Diagnostics
 
 ```bash
 .tooling/venv/bin/python tools/board.py status
@@ -106,12 +108,11 @@ HTTP API использует Bearer-ключ, работает без TLS в л
 .tooling/venv/bin/python tools/board.py export --output co2-history.csv
 ```
 
-Сканирование должно находить десятичные адреса 60 (0x3C) и 98 (0x62).
-Если датчик отсутствует — проверить общую землю, питание и SDA/SCL.
-Первое включение и правильность разводки проверяются на реальной плате;
-успешная компиляция сама по себе этого не подтверждает.
+The scan should find decimal addresses 60 (0x3C) and 98 (0x62). If the sensor
+is missing, check common ground, power and SDA/SCL. Wiring and first boot must
+be checked on real hardware; successful compilation alone cannot confirm them.
 
-## Сборка
+## Build and flash
 
 ```bash
 PLATFORMIO_CORE_DIR="$PWD/.tooling/platformio" .tooling/venv/bin/pio run -d firmware
@@ -119,14 +120,20 @@ PLATFORMIO_CORE_DIR="$PWD/.tooling/platformio" .tooling/venv/bin/pio run -d firm
 .tooling/venv/bin/python tools/check.py
 ```
 
-Прошивка: `firmware/.pio/build/esp32c3/firmware.bin`.
-Загрузка через PlatformIO с `-t upload --upload-port /dev/cu.usbmodem…`.
-Не применять erase-all: он удалит журнал и сетевые настройки.
-Изменять разметку flash следует только с учётом сохранения старого журнала.
-Код не выполняет принудительную калибровку и не меняет настройки ASC датчика.
+Firmware output: `firmware/.pio/build/esp32c3/firmware.bin`.
+To upload, add `-t upload --upload-port /dev/cu.usbmodem…` to the PlatformIO command.
+Do not use erase-all: it removes history and network settings. Any partition-map
+change needs a plan to preserve existing records. The firmware does not force
+calibration or change the sensor's automatic self-calibration settings.
 
-## Редактирование корпуса
+## Edit or print the enclosure
 
-Для генерации CAD нужны Python 3.12+ (закреплённые версии библиотек) и дополнительные зависимости: `.tooling/venv/bin/pip install -r requirements-cad.txt`.
-Запустить генераторы и проверки по [инструкции корпуса](enclosure/v0.8/README.md).
-Готовые STL уже включены; для печати Python и OpenSCAD не требуются.
+CAD generation requires Python 3.12+ for the pinned dependencies:
+
+```bash
+.tooling/venv/bin/pip install -r requirements-cad.txt
+```
+
+Follow the [enclosure guide](enclosure/v0.8/README.md) for generators, checks and
+print orientation. Ready-to-print STL files are included; printing does not
+require Python or OpenSCAD.
