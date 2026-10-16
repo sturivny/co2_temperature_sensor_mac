@@ -127,6 +127,6 @@ PLATFORMIO_CORE_DIR="$PWD/.tooling/platformio" .tooling/venv/bin/pio run -d firm
 
 ## Редактирование корпуса
 
-Установить дополнительные зависимости: `.tooling/venv/bin/pip install -r requirements-cad.txt`.
+Для генерации CAD нужны Python 3.12+ (закреплённые версии библиотек) и дополнительные зависимости: `.tooling/venv/bin/pip install -r requirements-cad.txt`.
 Запустить генераторы и проверки по [инструкции корпуса](enclosure/v0.8/README.md).
 Готовые STL уже включены; для печати Python и OpenSCAD не требуются.
