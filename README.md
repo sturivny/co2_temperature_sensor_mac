@@ -54,7 +54,7 @@ is connected to 3V3, not directly to USB 5 V.
 4. Allow about five seconds for the first measurement and one minute for the
    first history record. Unavailable or stale readings appear as “—”.
 5. Use the menu for CO₂ graphs over 24 hours / 7 days, temperature graphs
-   over **7 days / 24 days**, CSV export and the history folder. Temperature
+   over **24 hours / 7 days**, CSV export and the history folder. Temperature
    charts use the existing archive and degrees Celsius; missing history stays blank.
 
 The app targets Apple Silicon and macOS 13+. Other macOS versions have not been

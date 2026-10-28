@@ -86,3 +86,11 @@ and actual wiring installation for v0.9 remain unverified. No hardware was flash
   checked, and relaunched. History was backed up and preserved without migration.
 - v0.9 mount, USB-profile and revision checks passed again before publication.
   Its physical strength and wiring installation still require a print trial.
+
+## Corrected temperature periods — app 0.2.1, 28 October 2026
+
+The user corrected the requested period from 24 days to **24 hours**. Temperature
+now offers the same periods as CO₂: 24 hours and 7 days. The original 0.2.0 entry
+above is historical evidence, not the current behavior. Regression fixtures now
+distinguish a reading six hours old from one six days old and exclude records
+older than a week or dated in the future. Build, signing and host checks passed.

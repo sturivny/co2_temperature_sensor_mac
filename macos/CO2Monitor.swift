@@ -105,7 +105,7 @@ final class App:NSObject,NSApplicationDelegate {
  }
  func menu(message:String){let m=NSMenu();let status=NSMenuItem(title:message,action:nil,keyEquivalent:"");m.addItem(status)
   if let s=current{if let t=s.temperature,let rh=s.humidity{m.addItem(withTitle:String(format:"%.1f °C · %.0f %% влажности",t,rh),action:nil,keyEquivalent:"")};m.addItem(withTitle:"На устройстве: \(s.journal.count) / \(s.journal.capacity) записей",action:nil,keyEquivalent:"");if !s.journal.healthy{m.addItem(withTitle:"Ошибка журнала на устройстве",action:nil,keyEquivalent:"")}}
-  m.addItem(.separator());for (title,action) in [("CO₂ · за 24 часа",#selector(graph24)),("CO₂ · за 7 дней",#selector(graph7)),("Температура · за 7 дней",#selector(temperature7)),("Температура · за 24 дня",#selector(temperature24Days)),("Экспортировать CSV…",#selector(exportCSV)),("Настроить Wi-Fi по USB…",#selector(wifi)),("Адрес и ключ доступа…",#selector(settings)),("Открыть папку истории",#selector(folder))]{let i=NSMenuItem(title:title,action:action,keyEquivalent:"");i.target=self;m.addItem(i)};m.addItem(.separator());let q=NSMenuItem(title:"Завершить",action:#selector(quit),keyEquivalent:"q");q.target=self;m.addItem(q);item.menu=m
+  m.addItem(.separator());for (title,action) in [("CO₂ · за 24 часа",#selector(graph24)),("CO₂ · за 7 дней",#selector(graph7)),("Температура · за 24 часа",#selector(temperature24Hours)),("Температура · за 7 дней",#selector(temperature7)),("Экспортировать CSV…",#selector(exportCSV)),("Настроить Wi-Fi по USB…",#selector(wifi)),("Адрес и ключ доступа…",#selector(settings)),("Открыть папку истории",#selector(folder))]{let i=NSMenuItem(title:title,action:action,keyEquivalent:"");i.target=self;m.addItem(i)};m.addItem(.separator());let q=NSMenuItem(title:"Завершить",action:#selector(quit),keyEquivalent:"q");q.target=self;m.addItem(q);item.menu=m
  }
  func refresh(){guard !busy else{return};busy=true
   Task{@MainActor in defer{busy=false};do{let s=try await transport.status();current=s;let base=(s.unix_s>0 ? s.unix_s : Date().timeIntervalSince1970)-s.uptime_s;try store.anchor(device:s.device_id,boot:s.boot,base:base)
@@ -118,11 +118,11 @@ final class App:NSObject,NSApplicationDelegate {
  @objc func graph24(){graph(hours:24)}
  @objc func graph7(){graph(hours:168)}
  @objc func temperature7(){graph(hours:7*24,metric:.temperature)}
- @objc func temperature24Days(){graph(hours:24*24,metric:.temperature)}
+ @objc func temperature24Hours(){graph(hours:24,metric:.temperature)}
  func graph(hours:Double,metric:Metric = .co2){
   guard let s=current else{show("Сначала подключите устройство");return}
   let window=chartWindow ?? NSWindow(contentRect:NSRect(x:0,y:0,width:800,height:430),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
-  let period=hours==24 ? "последние 24 часа" : hours==168 ? "последние 7 дней" : "последние 24 дня"
+  let period=hours==24 ? "последние 24 часа" : "последние 7 дней"
   window.title="\(metric.title), \(metric.unit) · \(period)"
   let view=Plot(frame:window.contentView!.bounds);view.autoresizingMask=[.width,.height];view.hours=hours;view.metric=metric
   view.values=(try? store.points(hours:hours,device:s.device_id,metric:metric)) ?? []
@@ -144,20 +144,20 @@ func selfTest()throws{
  let gap=History(device_id:"other",oldest_seq:100,newest_seq:100,requested_after:0,records:[],next_after:0,more:false,read_ok:true,gap:true);try db.ingest(gap);let missing=try db.scalar("SELECT last-first+1 FROM gaps WHERE device='other'");try check(missing==99,"gap interval")
  try db.export(to:base.appendingPathComponent("test.csv"));let csv=try String(contentsOf:base.appendingPathComponent("test.csv"),encoding:.utf8);try check(csv.contains("812.0"),"CSV content")
  let now=2000000000.0
- let temperatures:[(Int64,Double,Double)]=[(1,now-25*86400,99),(2,now-20*86400,-5),(3,now-6*86400,18.5),(4,now+86400,77)]
+ let temperatures:[(Int64,Double,Double)]=[(1,now-8*86400,99),(2,now-6*86400,-5),(3,now-6*3600,18.5),(4,now+86400,77)]
  for (seq,date,t) in temperatures{
   let sample=Sample(seq:seq,unix_s:Int64(date),boot:99,uptime_s:seq*60,co2:900+Double(seq),temperature:t,humidity:45)
   try db.ingest(History(device_id:"chart-device",oldest_seq:1,newest_seq:4,requested_after:seq-1,records:[sample],next_after:seq,more:false,read_ok:true,gap:false))
  }
  let week=try db.points(hours:7*24,device:"chart-device",metric:.temperature,now:now)
- let month=try db.points(hours:24*24,device:"chart-device",metric:.temperature,now:now)
- try check(week.count==1 && week[0].1==18.5,"7-day temperature column and time filter")
- try check(month.count==2 && month[0].1 == -5 && month[1].1==18.5,"24-day temperature range; preserve subzero values and exclude future/old records")
- let co2=try db.points(hours:24*24,device:"chart-device",now:now)
+ let day=try db.points(hours:24,device:"chart-device",metric:.temperature,now:now)
+ try check(week.count==2 && week[0].1 == -5 && week[1].1==18.5,"7-day temperature column and time filter")
+ try check(day.count==1 && day[0].1==18.5,"24-hour temperature range; exclude future/old records")
+ let co2=try db.points(hours:7*24,device:"chart-device",now:now)
  try check(co2.map{$0.1} == [902,903],"CO2 chart regression")
  try check(Metric.temperature.axisRange([-5,18.5]).lowerBound < -5,"negative temperature axis")
  try check(Metric.temperature.axisRange([22,22]).upperBound > 22,"constant temperature axis")
- print("PASS: SQLite import, cursor, time recovery, gap accounting, CSV; 7/24-day temperature filtering, negative/constant axes, CO2 regression")
+ print("PASS: SQLite import, cursor, time recovery, gap accounting, CSV; 7-day/24-hour temperature filtering, negative/constant axes, CO2 regression")
 }
 func usbCheck()throws{
  let root=URL(fileURLWithPath:CommandLine.arguments.last!);let store=try Store(url:root.appendingPathComponent("history.sqlite"))

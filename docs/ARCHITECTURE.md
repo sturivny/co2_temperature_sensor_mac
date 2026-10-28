@@ -8,7 +8,7 @@
 - `firmware/include/Journal.h`: storage abstraction and portable NOR-flash ring.
 - `macos/CO2Monitor.swift`: native AppKit menu-bar app, SQLite history, USB and
   HTTP transport, CO₂ plots over 24 hours / 7 days, temperature plots over
-  7 days / 24 days, CSV export and connection settings.
+  24 hours / 7 days, CSV export and connection settings.
 - `tools/board.py`: local USB provisioning, diagnostics, CSV export.
 - `enclosure/v0.9`: final measured geometry, print files and digital checks.
 
@@ -93,7 +93,7 @@ Sensor temperature is influenced by the board and enclosure. No user-specific
 temperature offset, reference-gas calibration or sealed-enclosure accuracy
 validation has been done. CO₂ is not oxygen or carbon monoxide.
 
-## Temperature charts (app 0.2.0)
+## Temperature charts (app 0.2.1)
 
 `Metric` selects a fixed SQLite column (`co2` or `t`), title, unit, and axis
 formatting. Temperature queries use the existing records and filter by device
@@ -101,5 +101,4 @@ and time window, including an upper cutoff to omit future-dated samples. The
 axis preserves negative temperatures and has a nonzero span for constant values.
 The chart window is reused, and refresh preserves its selected metric and period.
 Gaps longer than three minutes are not bridged. No database migration, firmware
-update or synthetic backfill is needed. A 24-day view uses the Mac archive; the
-device's roughly 22.8-day ring alone cannot retain all 24 days.
+update or synthetic backfill is needed. Both periods match the existing CO₂ views: 24 hours and 7 days.
