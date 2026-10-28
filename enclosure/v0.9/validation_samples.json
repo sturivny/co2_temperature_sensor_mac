@@ -1,0 +1,45 @@
+{
+  "version": "0.9-snaps",
+  "scope": "controller 24.8 mm, straight-edge supports, PCB flush against USB wall; sensor unchanged",
+  "parts": [
+    {
+      "file": "fit_sensor_snaps.stl",
+      "dimensions_mm": [
+        26.2,
+        17.0,
+        8.0
+      ],
+      "volume_mm3": 1069.91,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 346
+    },
+    {
+      "file": "fit_esp32_snaps.stl",
+      "dimensions_mm": [
+        37.8,
+        24.6,
+        15.0
+      ],
+      "volume_mm3": 2774.95,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 920
+    }
+  ],
+  "checks": {
+    "sensor_pcb_at_rest_intersection_mm3": 0.0,
+    "esp32_pcb_at_rest_intersection_mm3": 0.0,
+    "flexural_strength": "not simulated; physical fit and fatigue unverified",
+    "insertion": "requires elastic latch deflection; rigid straight-in collision check intentionally not used"
+  },
+  "snap_dimensions_mm": {
+    "beam_free_length": 10,
+    "beam_thickness": 0.8,
+    "hook_overlap": 0.35,
+    "vertical_gap_above_pcb": 0.25,
+    "nominal_insertion_deflection": 0.6499999999999999
+  }
+}

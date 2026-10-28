@@ -41,8 +41,8 @@ PLATFORMIO_CORE_DIR="$PWD/.tooling/platformio" .tooling/venv/bin/pio run -d firm
 ```
 
 For CAD changes, install `requirements-cad.txt` into the project environment,
-run all three enclosure generators, `check_mount.py`, and `check_usb_profile.py`
-in `enclosure/v0.8`. Review previews and STL bounds/closed meshes. Keep the sensor
+run all three enclosure generators, `check_mount.py`, `check_usb_profile.py`, and `check_revision.py`
+in `enclosure/v0.9`. Review previews and STL bounds/closed meshes. Keep the sensor
 fit fixture hashes unless a deliberate geometry change is documented.
 
 Hardware tests need the real board and local network. The default check script

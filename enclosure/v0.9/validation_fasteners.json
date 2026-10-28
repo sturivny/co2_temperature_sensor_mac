@@ -1,0 +1,49 @@
+{
+  "parts": [
+    {
+      "file": "screw_test_base.stl",
+      "dimensions_mm": [
+        14.0,
+        14.0,
+        12.0
+      ],
+      "volume_mm3": 2329.37,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 204
+    },
+    {
+      "file": "screw_test_cap.stl",
+      "dimensions_mm": [
+        14.0,
+        14.0,
+        2.0
+      ],
+      "volume_mm3": 382.98,
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1,
+      "triangles": 208
+    }
+  ],
+  "screw": {
+    "diameter_mm": 2,
+    "length_under_head_mm": 10,
+    "head_seating": "flat_outside_cap"
+  },
+  "holes": {
+    "countersink": false,
+    "through_diameter_mm": 2.4,
+    "pilot_diameter_mm": 1.7,
+    "pilot_depth_mm": 10
+  },
+  "full_case": {
+    "outside_height_mm": 17,
+    "head_seating_height_mm": 17.0,
+    "screw_tip_mm": 7.0,
+    "pilot_bottom_mm": 5,
+    "tip_clearance_mm": 2.0
+  },
+  "notes": "Assumes M2 x 10 mm measured under the head. Socket head seats flat outside; thread engagement requires a physical test."
+}
