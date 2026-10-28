@@ -11,6 +11,21 @@ struct Configuration:Codable {var host:String="";var token:String=""}
 struct Failure:LocalizedError {let message:String;var errorDescription:String?{message}}
 let transient=unsafeBitCast(-1,to:sqlite3_destructor_type.self)
 
+
+enum Metric {
+ case co2, temperature
+ var column:String{self == .co2 ? "co2" : "t"}
+ var title:String{self == .co2 ? "CO₂" : "Температура"}
+ var unit:String{self == .co2 ? "ppm" : "°C"}
+ func axisRange(_ values:[Double])->ClosedRange<Double>{
+  let valid=values.filter{$0.isFinite}
+  guard let minimum=valid.min(),let maximum=valid.max() else{return self == .co2 ? 300...1300 : 15...30}
+  if self == .co2{let low=max(0,floor(minimum/100)*100-100);return low...max(low+200,ceil(maximum/100)*100+100)}
+  let low=floor(minimum*2)/2-0.5;return low...max(low+1,ceil(maximum*2)/2+0.5)
+ }
+ func tick(_ value:Double)->String{self == .co2 ? String(Int(value.rounded())) : String(format:"%.1f",value)}
+}
+
 final class Store {
  var db:OpaquePointer?;let url:URL
  init(url:URL)throws{self.url=url;try FileManager.default.createDirectory(at:url.deletingLastPathComponent(),withIntermediateDirectories:true);guard sqlite3_open(url.path,&db)==SQLITE_OK else{throw Failure(message:"Не удалось открыть историю")}
@@ -36,7 +51,7 @@ final class Store {
    try exec("COMMIT")
   }catch{try? exec("ROLLBACK");throw error}
  }
- func points(hours:Double,device:String)throws->[(Double,Double)]{var a:[(Double,Double)]=[];try prepared("SELECT effective,co2 FROM samples WHERE device=? AND effective>=? ORDER BY effective",[device,Date().timeIntervalSince1970-hours*3600]){q in while sqlite3_step(q)==SQLITE_ROW{a.append((sqlite3_column_double(q,0),sqlite3_column_double(q,1)))}};return a}
+ func points(hours:Double,device:String,metric:Metric = .co2,now:Double = Date().timeIntervalSince1970)throws->[(Double,Double)]{var a:[(Double,Double)]=[];try prepared("SELECT effective,\(metric.column) FROM samples WHERE device=? AND effective>=? AND effective<=? AND \(metric.column) IS NOT NULL ORDER BY effective",[device,now-hours*3600,now]){q in while sqlite3_step(q)==SQLITE_ROW{a.append((sqlite3_column_double(q,0),sqlite3_column_double(q,1)))}};return a}
  func export(to:URL)throws{var out="device_id,sequence,utc_time,device_unix_s,boot,uptime_s,co2_ppm,temperature_c,humidity_percent\n";let df=ISO8601DateFormatter()
   try prepared("SELECT device,seq,effective,unix_s,boot,uptime,co2,t,rh FROM samples ORDER BY device,seq",[]){q in while sqlite3_step(q)==SQLITE_ROW{let device=String(cString:sqlite3_column_text(q,0));let stamp=sqlite3_column_type(q,2)==SQLITE_NULL ? "" : df.string(from:Date(timeIntervalSince1970:sqlite3_column_double(q,2)));out += "\(device),\(sqlite3_column_int64(q,1)),\(stamp),\(sqlite3_column_int64(q,3)),\(sqlite3_column_int64(q,4)),\(sqlite3_column_int64(q,5)),\(sqlite3_column_double(q,6)),\(sqlite3_column_double(q,7)),\(sqlite3_column_double(q,8))\n"}}
   try out.write(to:to,atomically:true,encoding:.utf8)
@@ -69,13 +84,14 @@ final class Transport {
 }
 
 final class Plot:NSView {
- var values:[(Double,Double)]=[];var hours:Double=24
+ var values:[(Double,Double)]=[];var hours:Double=24;var metric:Metric = .co2
  override func draw(_ dirtyRect:NSRect){NSColor.windowBackgroundColor.setFill();bounds.fill();let area=bounds.insetBy(dx:65,dy:45)
   let label:[NSAttributedString.Key:Any]=[.font:NSFont.systemFont(ofSize:12),.foregroundColor:NSColor.secondaryLabelColor]
   guard values.count>1 else{("История появится после нескольких минут работы" as NSString).draw(at:NSPoint(x:65,y:bounds.midY),withAttributes:label);return}
-  let now=Date().timeIntervalSince1970,start=now-hours*3600;let low=max(0,floor((values.map{$0.1}.min() ?? 400)/100)*100-100),high=max(low+200,ceil((values.map{$0.1}.max() ?? 1200)/100)*100+100)
-  for i in 0...4{let y=area.minY+area.height*Double(i)/4;NSColor.separatorColor.setStroke();let p=NSBezierPath();p.move(to:NSPoint(x:area.minX,y:y));p.line(to:NSPoint(x:area.maxX,y:y));p.stroke();("\(Int(low+(high-low)*Double(i)/4))" as NSString).draw(at:NSPoint(x:12,y:y-7),withAttributes:label)}
-  let path=NSBezierPath();var prior:Double?;for (t,v) in values{let pt=NSPoint(x:area.minX+(t-start)/(now-start)*area.width,y:area.minY+(v-low)/(high-low)*area.height);if let last=prior,t-last<180{path.line(to:pt)}else{path.move(to:pt)};prior=t};NSColor.controlAccentColor.setStroke();path.lineWidth=2;path.stroke()
+  let now=Date().timeIntervalSince1970,start=now-hours*3600;let range=metric.axisRange(values.map{$0.1}),low=range.lowerBound,high=range.upperBound
+  (metric.unit as NSString).draw(at:NSPoint(x:12,y:bounds.maxY-25),withAttributes:label)
+  for i in 0...4{let y=area.minY+area.height*Double(i)/4;NSColor.separatorColor.setStroke();let p=NSBezierPath();p.move(to:NSPoint(x:area.minX,y:y));p.line(to:NSPoint(x:area.maxX,y:y));p.stroke();(metric.tick(low+(high-low)*Double(i)/4) as NSString).draw(at:NSPoint(x:12,y:y-7),withAttributes:label)}
+  let path=NSBezierPath();var prior:Double?;for (t,v) in values{let pt=NSPoint(x:area.minX+(t-start)/(now-start)*area.width,y:area.minY+(v-low)/(high-low)*area.height);if let last=prior,t-last<180{path.line(to:pt)}else{path.move(to:pt)};prior=t};(metric == .temperature ? NSColor.systemOrange : NSColor.controlAccentColor).setStroke();path.lineWidth=2;path.stroke()
   let df=DateFormatter();df.dateFormat=hours>24 ? "dd.MM HH:mm" : "HH:mm";for i in 0...4{let x=area.minX+area.width*Double(i)/4;let text=df.string(from:Date(timeIntervalSince1970:start+(now-start)*Double(i)/4));(text as NSString).draw(at:NSPoint(x:x-25,y:15),withAttributes:label)}
  }
 }
@@ -89,18 +105,29 @@ final class App:NSObject,NSApplicationDelegate {
  }
  func menu(message:String){let m=NSMenu();let status=NSMenuItem(title:message,action:nil,keyEquivalent:"");m.addItem(status)
   if let s=current{if let t=s.temperature,let rh=s.humidity{m.addItem(withTitle:String(format:"%.1f °C · %.0f %% влажности",t,rh),action:nil,keyEquivalent:"")};m.addItem(withTitle:"На устройстве: \(s.journal.count) / \(s.journal.capacity) записей",action:nil,keyEquivalent:"");if !s.journal.healthy{m.addItem(withTitle:"Ошибка журнала на устройстве",action:nil,keyEquivalent:"")}}
-  m.addItem(.separator());for (title,action) in [("График за 24 часа",#selector(graph24)),("График за 7 дней",#selector(graph7)),("Экспортировать CSV…",#selector(exportCSV)),("Настроить Wi-Fi по USB…",#selector(wifi)),("Адрес и ключ доступа…",#selector(settings)),("Открыть папку истории",#selector(folder))]{let i=NSMenuItem(title:title,action:action,keyEquivalent:"");i.target=self;m.addItem(i)};m.addItem(.separator());let q=NSMenuItem(title:"Завершить",action:#selector(quit),keyEquivalent:"q");q.target=self;m.addItem(q);item.menu=m
+  m.addItem(.separator());for (title,action) in [("CO₂ · за 24 часа",#selector(graph24)),("CO₂ · за 7 дней",#selector(graph7)),("Температура · за 24 часа",#selector(temperature24Hours)),("Температура · за 7 дней",#selector(temperature7)),("Экспортировать CSV…",#selector(exportCSV)),("Настроить Wi-Fi по USB…",#selector(wifi)),("Адрес и ключ доступа…",#selector(settings)),("Открыть папку истории",#selector(folder))]{let i=NSMenuItem(title:title,action:action,keyEquivalent:"");i.target=self;m.addItem(i)};m.addItem(.separator());let q=NSMenuItem(title:"Завершить",action:#selector(quit),keyEquivalent:"q");q.target=self;m.addItem(q);item.menu=m
  }
  func refresh(){guard !busy else{return};busy=true
   Task{@MainActor in defer{busy=false};do{let s=try await transport.status();current=s;let base=(s.unix_s>0 ? s.unix_s : Date().timeIntervalSince1970)-s.uptime_s;try store.anchor(device:s.device_id,boot:s.boot,base:base)
     var cursor=try store.cursor(s.device_id);if cursor>s.journal.newest_seq{throw Failure(message:"Журнал устройства сброшен; архив Mac сохранён")};var missed=false
     for _ in 0..<8 {let h=try await transport.history(after:cursor);guard h.device_id==s.device_id else{throw Failure(message:"Ответило другое устройство")};missed = missed || h.gap;try store.ingest(h);if !h.more{break};guard h.next_after>cursor else{throw Failure(message:"Ошибка последовательности журнала")};cursor=h.next_after}
-    if let c=s.co2,let age=s.age_s,age<=20{item.button?.title="CO₂ \(Int(c.rounded())) ppm";menu(message:"\(transport.mode) · обновлено \(Int(age)) с назад"+((missed || ((try? store.scalar("SELECT COUNT(*) FROM gaps WHERE device=?",[s.device_id])) ?? 0)>0) ? " · есть пропуск истории":""))}else{item.button?.title="CO₂ —";menu(message:s.error.isEmpty ? "Ожидание измерения" : "Датчик: \(s.error)")};if let p=plot{p.values=(try? store.points(hours:p.hours,device:s.device_id)) ?? [];p.needsDisplay=true}
+    if let c=s.co2,let age=s.age_s,age<=20{item.button?.title="CO₂ \(Int(c.rounded())) ppm";menu(message:"\(transport.mode) · обновлено \(Int(age)) с назад"+((missed || ((try? store.scalar("SELECT COUNT(*) FROM gaps WHERE device=?",[s.device_id])) ?? 0)>0) ? " · есть пропуск истории":""))}else{item.button?.title="CO₂ —";menu(message:s.error.isEmpty ? "Ожидание измерения" : "Датчик: \(s.error)")};if let p=plot{p.values=(try? store.points(hours:p.hours,device:s.device_id,metric:p.metric)) ?? [];p.needsDisplay=true}
    }catch{item.button?.title="CO₂ —";menu(message:error.localizedDescription)}}
  }
  func show(_ text:String){let a=NSAlert();a.messageText="CO2 Monitor";a.informativeText=text;a.runModal()}
- @objc func graph24(){graph(hours:24)};@objc func graph7(){graph(hours:168)}
- func graph(hours:Double){guard let s=current else{show("Сначала подключите устройство");return};let window=NSWindow(contentRect:NSRect(x:0,y:0,width:800,height:430),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false);window.title=hours==24 ? "CO₂ · последние 24 часа" : "CO₂ · последние 7 дней";let view=Plot(frame:window.contentView!.bounds);view.autoresizingMask=[.width,.height];view.hours=hours;view.values=(try? store.points(hours:hours,device:s.device_id)) ?? [];window.contentView=view;window.center();window.isReleasedWhenClosed=false;window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true);chartWindow=window;plot=view}
+ @objc func graph24(){graph(hours:24)}
+ @objc func graph7(){graph(hours:168)}
+ @objc func temperature7(){graph(hours:7*24,metric:.temperature)}
+ @objc func temperature24Hours(){graph(hours:24,metric:.temperature)}
+ func graph(hours:Double,metric:Metric = .co2){
+  guard let s=current else{show("Сначала подключите устройство");return}
+  let window=chartWindow ?? NSWindow(contentRect:NSRect(x:0,y:0,width:800,height:430),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
+  let period=hours==24 ? "последние 24 часа" : "последние 7 дней"
+  window.title="\(metric.title), \(metric.unit) · \(period)"
+  let view=Plot(frame:window.contentView!.bounds);view.autoresizingMask=[.width,.height];view.hours=hours;view.metric=metric
+  view.values=(try? store.points(hours:hours,device:s.device_id,metric:metric)) ?? []
+  window.contentView=view;if chartWindow==nil{window.center()};window.isReleasedWhenClosed=false;window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true);chartWindow=window;plot=view
+ }
  @objc func exportCSV(){let panel=NSSavePanel();panel.nameFieldStringValue="co2-history.csv";NSApp.activate(ignoringOtherApps:true);if panel.runModal() == .OK,let url=panel.url{do{try store.export(to:url)}catch{show(error.localizedDescription)}}}
  @objc func folder(){NSWorkspace.shared.open(root)}
  @objc func settings(){let a=NSAlert();a.messageText="Подключение по Wi-Fi";a.informativeText="Пустой адрес — подключение по USB. Для работы от power bank сначала настройте сеть через USB.";a.addButton(withTitle:"Сохранить");a.addButton(withTitle:"Отмена");let v=NSView(frame:NSRect(x:0,y:0,width:380,height:90));let host=NSTextField(frame:NSRect(x:0,y:55,width:380,height:25));host.placeholderString="co2-xxxxxx.local или IP";host.stringValue=transport.config.host;let key=NSSecureTextField(frame:NSRect(x:0,y:15,width:380,height:25));key.placeholderString="Ключ доступа";key.stringValue=transport.config.token;v.addSubview(host);v.addSubview(key);a.accessoryView=v;NSApp.activate(ignoringOtherApps:true);if a.runModal() == .alertFirstButtonReturn{let c=Configuration(host:host.stringValue.trimmingCharacters(in:.whitespacesAndNewlines),token:key.stringValue);do{try JSONEncoder().encode(c).write(to:configURL,options:.atomic);try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:configURL.path);transport.config=c;refresh()}catch{show(error.localizedDescription)}}}
@@ -116,7 +143,21 @@ func selfTest()throws{
  try db.anchor(device:"test-device",boot:3,base:1700000000);let time=try db.scalar("SELECT effective FROM samples");try check(time==1700000060,"time recovery")
  let gap=History(device_id:"other",oldest_seq:100,newest_seq:100,requested_after:0,records:[],next_after:0,more:false,read_ok:true,gap:true);try db.ingest(gap);let missing=try db.scalar("SELECT last-first+1 FROM gaps WHERE device='other'");try check(missing==99,"gap interval")
  try db.export(to:base.appendingPathComponent("test.csv"));let csv=try String(contentsOf:base.appendingPathComponent("test.csv"),encoding:.utf8);try check(csv.contains("812.0"),"CSV content")
- print("PASS: SQLite duplicate import, cursor, time recovery, gap accounting, CSV")
+ let now=2000000000.0
+ let temperatures:[(Int64,Double,Double)]=[(1,now-8*86400,99),(2,now-6*86400,-5),(3,now-6*3600,18.5),(4,now+86400,77)]
+ for (seq,date,t) in temperatures{
+  let sample=Sample(seq:seq,unix_s:Int64(date),boot:99,uptime_s:seq*60,co2:900+Double(seq),temperature:t,humidity:45)
+  try db.ingest(History(device_id:"chart-device",oldest_seq:1,newest_seq:4,requested_after:seq-1,records:[sample],next_after:seq,more:false,read_ok:true,gap:false))
+ }
+ let week=try db.points(hours:7*24,device:"chart-device",metric:.temperature,now:now)
+ let day=try db.points(hours:24,device:"chart-device",metric:.temperature,now:now)
+ try check(week.count==2 && week[0].1 == -5 && week[1].1==18.5,"7-day temperature column and time filter")
+ try check(day.count==1 && day[0].1==18.5,"24-hour temperature range; exclude future/old records")
+ let co2=try db.points(hours:7*24,device:"chart-device",now:now)
+ try check(co2.map{$0.1} == [902,903],"CO2 chart regression")
+ try check(Metric.temperature.axisRange([-5,18.5]).lowerBound < -5,"negative temperature axis")
+ try check(Metric.temperature.axisRange([22,22]).upperBound > 22,"constant temperature axis")
+ print("PASS: SQLite import, cursor, time recovery, gap accounting, CSV; 7-day/24-hour temperature filtering, negative/constant axes, CO2 regression")
 }
 func usbCheck()throws{
  let root=URL(fileURLWithPath:CommandLine.arguments.last!);let store=try Store(url:root.appendingPathComponent("history.sqlite"))

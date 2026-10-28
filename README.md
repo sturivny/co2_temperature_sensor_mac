@@ -9,12 +9,12 @@ The device records history in its internal flash, even while the Mac is asleep.
 
 - `firmware/` — ESP32-C3 firmware.
 - `macos/` — native Mac menu-bar app.
-- `enclosure/v0.8/` — printable STL files, SCAD sources, generators, fit samples and previews.
+- `enclosure/v0.9/` — printable STL files, SCAD sources, generators, fit samples and previews.
 - [Hardware](docs/HARDWARE.md), [architecture](docs/ARCHITECTURE.md),
   [device protocol](docs/PROTOCOL.md), [validation](VALIDATION.md).
 - [AI contributor instructions](AGENTS.md).
 
-![Enclosure](enclosure/v0.8/preview.png)
+![Enclosure](enclosure/v0.9/preview.png)
 
 ## Set up a fresh checkout
 
@@ -53,7 +53,9 @@ is connected to 3V3, not directly to USB 5 V.
 3. Open `Open Monitor.command` in the repository root. CO₂ appears in the menu bar.
 4. Allow about five seconds for the first measurement and one minute for the
    first history record. Unavailable or stale readings appear as “—”.
-5. Use the menu for 24-hour / 7-day graphs, CSV export and the history folder.
+5. Use the menu for CO₂ graphs over 24 hours / 7 days, temperature graphs
+   over **24 hours / 7 days**, CSV export and the history folder. Temperature
+   charts use the existing archive and degrees Celsius; missing history stays blank.
 
 The app targets Apple Silicon and macOS 13+. Other macOS versions have not been
 verified separately. Builds are locally ad-hoc signed. The existing app interface
@@ -134,6 +136,6 @@ CAD generation requires Python 3.12+ for the pinned dependencies:
 .tooling/venv/bin/pip install -r requirements-cad.txt
 ```
 
-Follow the [enclosure guide](enclosure/v0.8/README.md) for generators, checks and
+Follow the [enclosure guide](enclosure/v0.9/README.md) for generators, checks and
 print orientation. Ready-to-print STL files are included; printing does not
 require Python or OpenSCAD.

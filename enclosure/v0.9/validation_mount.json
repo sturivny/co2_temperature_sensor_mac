@@ -1,0 +1,46 @@
+{
+  "controller_dimensions_mm": [
+    24.8,
+    20.6
+  ],
+  "pcb_inner_wall_contact_x": 76.0,
+  "usb_front_x": 78.0,
+  "case_outer_wall_x": 78.0,
+  "recess_mm": 0.0,
+  "lower_support_tests": [
+    {
+      "corner_cut_mm": 1.0,
+      "total_bearing_area_mm2": 6.4
+    },
+    {
+      "corner_cut_mm": 1.5,
+      "total_bearing_area_mm2": 6.4
+    },
+    {
+      "corner_cut_mm": 2.0,
+      "total_bearing_area_mm2": 6.4
+    },
+    {
+      "corner_radius_mm": 2,
+      "total_bearing_area_mm2": 6.4
+    }
+  ],
+  "unchanged_sensor_parts": [
+    {
+      "file": "fit_sensor.stl",
+      "identical_to_v07": true,
+      "sha256": "a8406ec2f0698b819a7409d283f0bb142326e991db02c93194525f9ab0dea0d1"
+    },
+    {
+      "file": "fit_sensor_snaps.stl",
+      "identical_to_v07": true,
+      "sha256": "6f451282001de407a257219d5cf99f8feecd3b476001a69910cc439f943c656b"
+    }
+  ],
+  "sample_wall_coordinates_mm": {
+    "pcb_edge": 35.8,
+    "inner_wall": 35.8,
+    "usb_front": 37.8,
+    "outer_wall": 37.8
+  }
+}

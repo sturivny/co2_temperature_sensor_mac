@@ -31,20 +31,20 @@ it is probed again after five seconds.
 | USB-C protrusion beyond PCB | 2 mm |
 | USB-C metal shell | 9 × 3 mm |
 | Shell bottom above PCB bottom | 1.1 mm |
-| Screws | 2 × 10 mm, countersunk head Ø4.6 mm |
+| Screws for v0.9 | M2 × 10 mm under the head, socket head outside the lid |
 
-Enclosure v0.8: **78 × 40 × 17 mm**, R3 corners, R0.6 edges, 2 mm walls/floor/lid.
+Enclosure v0.9: **78 × 40 × 17 mm**, R3 corners, R0.6 edges, 2 mm walls/floor/lid.
 The USB-C opening is a 9.6 × 3.6 mm capsule with R1.8 ends. The connector is
 nominally flush with the outside wall. Supports contact straight PCB edges,
-not the chamfered corners. The countersunk head angle is assumed to be 90°;
-it was not measured. Snap tabs are included on fit samples; the full enclosure
+not the chamfered corners. The lid uses straight Ø2.4 mm holes with flat external seats for M2 socket
+heads. M2×10 length is measured under the head; no countersink is present. Snap tabs are included on fit samples; the full enclosure
 uses supports and lid retention features. There is no internal battery or SD card.
 
 The user confirmed that the final fit sample fitted correctly and started
 printing the enclosure. Closed-enclosure temperature accuracy, all cable shapes,
 snap durability and the specific power bank have not been comprehensively tested.
 
-Print files and detailed instructions: [enclosure/v0.8](../enclosure/v0.8/README.md).
+Print files and detailed instructions: [enclosure/v0.8](../enclosure/v0.9/README.md).
 
 ## Interpreting CO₂
 

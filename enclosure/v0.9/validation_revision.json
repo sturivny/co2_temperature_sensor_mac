@@ -1,0 +1,115 @@
+{
+  "version": "0.9",
+  "parts": [
+    {
+      "file": "base.stl",
+      "bounds_mm": [
+        78.0,
+        40.0,
+        15.0
+      ],
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1
+    },
+    {
+      "file": "fit_esp32.stl",
+      "bounds_mm": [
+        37.8,
+        24.6,
+        15.0
+      ],
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1
+    },
+    {
+      "file": "fit_esp32_snaps.stl",
+      "bounds_mm": [
+        37.8,
+        24.6,
+        15.0
+      ],
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1
+    },
+    {
+      "file": "fit_sensor.stl",
+      "bounds_mm": [
+        26.2,
+        17.0,
+        6.8
+      ],
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1
+    },
+    {
+      "file": "fit_sensor_snaps.stl",
+      "bounds_mm": [
+        26.2,
+        17.0,
+        8.0
+      ],
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1
+    },
+    {
+      "file": "lid.stl",
+      "bounds_mm": [
+        78.0,
+        40.0,
+        10.1
+      ],
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1
+    },
+    {
+      "file": "screw_test_base.stl",
+      "bounds_mm": [
+        14.0,
+        14.0,
+        12.0
+      ],
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1
+    },
+    {
+      "file": "screw_test_cap.stl",
+      "bounds_mm": [
+        14.0,
+        14.0,
+        2.0
+      ],
+      "watertight": true,
+      "consistent_winding": true,
+      "connected_solids": 1
+    }
+  ],
+  "checks": {
+    "root_cross_section_mm2": {
+      "v08": 6.6,
+      "v09": 100.0,
+      "not_a_strength_multiplier": true
+    },
+    "rear_stop_contact_clearance_mm": 0.15,
+    "wiring_slot": {
+      "width_mm": 8.0,
+      "open_from_top": true,
+      "geometric_drop_envelope_clear": true
+    },
+    "lid_fasteners": {
+      "clearance_diameter_mm": 2.4,
+      "countersink": false,
+      "flat_external_seat_diameter_checked_mm": 5.4,
+      "m2x10_tip_clearance_mm": 2.0
+    },
+    "removed_base_material_confined_to_wire_slot": true,
+    "sensor_samples_byte_identical_to_v08": true
+  },
+  "strength": "Not load-tested or FEA-validated; physical test print required."
+}

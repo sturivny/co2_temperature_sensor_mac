@@ -7,7 +7,7 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-for folder in ("tools", "enclosure/v0.8"):
+for folder in ("tools", "enclosure/v0.8", "enclosure/v0.9"):
     for source in (root / folder).glob("*.py"):
         py_compile.compile(str(source), doraise=True)
 with tempfile.TemporaryDirectory(prefix="co2-check-") as folder:
