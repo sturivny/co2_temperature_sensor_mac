@@ -15,7 +15,7 @@ let transient=unsafeBitCast(-1,to:sqlite3_destructor_type.self)
 enum Metric {
  case co2, temperature
  var column:String{self == .co2 ? "co2" : "t"}
- var title:String{self == .co2 ? "CO₂" : "Температура"}
+ var title:String{self == .co2 ? "CO₂" : "Temperature"}
  var unit:String{self == .co2 ? "ppm" : "°C"}
  func axisRange(_ values:[Double])->ClosedRange<Double>{
   let valid=values.filter{$0.isFinite}
@@ -26,9 +26,18 @@ enum Metric {
  func tick(_ value:Double)->String{self == .co2 ? String(Int(value.rounded())) : String(format:"%.1f",value)}
 }
 
+
+struct LiveState {
+ var status:BoardStatus?;var receivedAt:Date?;var connectionError:String?;var historyError:String?
+ mutating func accept(_ value:BoardStatus,at date:Date = Date()){status=value;receivedAt=date;connectionError=nil}
+ mutating func fail(_ message:String){connectionError=message}
+ func age(at now:Date = Date())->Double?{guard let value=status?.age_s,let date=receivedAt else{return nil};return value+max(0,now.timeIntervalSince(date))}
+ func fresh(at now:Date = Date())->Bool{guard connectionError==nil,status?.co2 != nil,let age=age(at:now) else{return false};return age<=20}
+}
+
 final class Store {
  var db:OpaquePointer?;let url:URL
- init(url:URL)throws{self.url=url;try FileManager.default.createDirectory(at:url.deletingLastPathComponent(),withIntermediateDirectories:true);guard sqlite3_open(url.path,&db)==SQLITE_OK else{throw Failure(message:"Не удалось открыть историю")}
+ init(url:URL)throws{self.url=url;try FileManager.default.createDirectory(at:url.deletingLastPathComponent(),withIntermediateDirectories:true);guard sqlite3_open(url.path,&db)==SQLITE_OK else{throw Failure(message:"Could not open the history archive")}
   try exec("PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS samples(device TEXT,seq INTEGER,unix_s INTEGER,boot INTEGER,uptime INTEGER,co2 REAL,t REAL,rh REAL,effective REAL,PRIMARY KEY(device,seq)); CREATE TABLE IF NOT EXISTS anchors(device TEXT,boot INTEGER,base REAL,PRIMARY KEY(device,boot)); CREATE TABLE IF NOT EXISTS gaps(device TEXT,first INTEGER,last INTEGER,PRIMARY KEY(device,first,last));")
  }
  deinit{sqlite3_close(db)}
@@ -37,16 +46,17 @@ final class Store {
   for (i,v) in values.enumerated(){let n=Int32(i+1);if let s=v as? String{sqlite3_bind_text(q,n,s,-1,transient)}else if let x=v as? Int64{sqlite3_bind_int64(q,n,x)}else if let x=v as? Double{sqlite3_bind_double(q,n,x)}else{sqlite3_bind_null(q,n)}};try body(q)
  }
  func scalar(_ sql:String,_ v:[Any]=[])throws->Int64{var result:Int64=0;try prepared(sql,v){q in if sqlite3_step(q)==SQLITE_ROW{result=sqlite3_column_int64(q,0)}};return result}
+ func latestDevice()throws->String?{var device:String?;try prepared("SELECT device FROM samples GROUP BY device ORDER BY MAX(effective) DESC LIMIT 1",[]){q in if sqlite3_step(q)==SQLITE_ROW{device=String(cString:sqlite3_column_text(q,0))}};return device}
  func cursor(_ device:String)throws->Int64{try scalar("SELECT COALESCE(MAX(seq),0) FROM samples WHERE device=?",[device])}
  func anchor(device:String,boot:Int64,base:Double)throws {
   var prior:Double?;try prepared("SELECT base FROM anchors WHERE device=? AND boot=?",[device,boot]){q in if sqlite3_step(q)==SQLITE_ROW{prior=sqlite3_column_double(q,0)}}
   if let old=prior,abs(old-base)<2{return}
-  try prepared("INSERT OR REPLACE INTO anchors VALUES(?,?,?)",[device,boot,base]){q in guard sqlite3_step(q)==SQLITE_DONE else{throw Failure(message:"Ошибка времени")}}
+  try prepared("INSERT OR REPLACE INTO anchors VALUES(?,?,?)",[device,boot,base]){q in guard sqlite3_step(q)==SQLITE_DONE else{throw Failure(message:"Could not save the clock reference")}}
   try prepared("UPDATE samples SET effective=?+uptime WHERE device=? AND boot=? AND unix_s=0",[base,device,boot]){q in _=sqlite3_step(q)}
  }
  func ingest(_ history:History)throws {
-  guard history.read_ok else{throw Failure(message:"Ошибка чтения памяти устройства")};try exec("BEGIN IMMEDIATE")
-  do {for r in history.records{try prepared("INSERT OR IGNORE INTO samples VALUES(?,?,?,?,?,?,?,?,COALESCE(NULLIF(?,0),(SELECT base+? FROM anchors WHERE device=? AND boot=?)))",[history.device_id,r.seq,r.unix_s,r.boot,r.uptime_s,r.co2,r.temperature,r.humidity,r.unix_s,r.uptime_s,history.device_id,r.boot]){q in guard sqlite3_step(q)==SQLITE_DONE else{throw Failure(message:"Ошибка сохранения истории")}}}
+  guard history.read_ok else{throw Failure(message:"Could not read device history")};try exec("BEGIN IMMEDIATE")
+  do {for r in history.records{try prepared("INSERT OR IGNORE INTO samples VALUES(?,?,?,?,?,?,?,?,COALESCE(NULLIF(?,0),(SELECT base+? FROM anchors WHERE device=? AND boot=?)))",[history.device_id,r.seq,r.unix_s,r.boot,r.uptime_s,r.co2,r.temperature,r.humidity,r.unix_s,r.uptime_s,history.device_id,r.boot]){q in guard sqlite3_step(q)==SQLITE_DONE else{throw Failure(message:"Could not save history")}}}
    if history.gap {try prepared("INSERT OR IGNORE INTO gaps VALUES(?,?,?)",[history.device_id,history.requested_after+1,history.oldest_seq-1]){q in _=sqlite3_step(q)}}
    try exec("COMMIT")
   }catch{try? exec("ROLLBACK");throw error}
@@ -60,22 +70,26 @@ final class Store {
 
 final class Transport {
  var config:Configuration;var mode="USB";static let usbQueue=DispatchQueue(label:"co2.usb")
+ static func makeSession()->URLSession{let c=URLSessionConfiguration.ephemeral;c.timeoutIntervalForRequest=4;c.timeoutIntervalForResource=6;c.waitsForConnectivity=false;c.urlCache=nil;c.requestCachePolicy = .reloadIgnoringLocalCacheData;return URLSession(configuration:c)}
+ var session=Transport.makeSession()
+ func resetSession(){session.invalidateAndCancel();session=Self.makeSession()}
+ deinit{session.invalidateAndCancel()}
  init(_ c:Configuration){config=c}
- static func port()throws->String{let ports=try FileManager.default.contentsOfDirectory(atPath:"/dev").filter{$0.hasPrefix("cu.usbmodem")};guard ports.count==1 else{throw Failure(message:ports.isEmpty ? "Подключите контроллер по USB или настройте Wi-Fi" : "Подключено несколько USB-плат")};return "/dev/"+ports[0]}
+ static func port()throws->String{let ports=try FileManager.default.contentsOfDirectory(atPath:"/dev").filter{$0.hasPrefix("cu.usbmodem")};guard ports.count==1 else{throw Failure(message:ports.isEmpty ? "Connect the device by USB or configure Wi-Fi" : "More than one USB device is connected")};return "/dev/"+ports[0]}
  static func usb(_ cmd:[String:Any],kind:String)throws->Data{
-  let fd=Darwin.open(try port(),O_RDWR|O_NOCTTY|O_NONBLOCK);guard fd>=0 else{throw Failure(message:"Нет доступа к USB")};defer{Darwin.close(fd)}
-  var cfg=termios();guard tcgetattr(fd,&cfg)==0 else{throw Failure(message:"Ошибка USB-порта")};cfmakeraw(&cfg);cfsetspeed(&cfg,speed_t(B115200));cfg.c_cflag |= tcflag_t(CLOCAL|CREAD);cfg.c_cflag &= ~tcflag_t(HUPCL);tcsetattr(fd,TCSANOW,&cfg);var rts=Int32(TIOCM_RTS);var dtr=Int32(TIOCM_DTR);_ = ioctl(fd,TIOCMBIC,&rts);_ = ioctl(fd,TIOCMBIS,&dtr);tcflush(fd,TCIFLUSH)
-  var data=try JSONSerialization.data(withJSONObject:cmd);data.append(10);let wrote=data.withUnsafeBytes{Darwin.write(fd,$0.baseAddress,data.count)};guard wrote==data.count else{throw Failure(message:"Не удалось отправить запрос USB")}
+  let fd=Darwin.open(try port(),O_RDWR|O_NOCTTY|O_NONBLOCK);guard fd>=0 else{throw Failure(message:"Cannot access the USB device")};defer{Darwin.close(fd)}
+  var cfg=termios();guard tcgetattr(fd,&cfg)==0 else{throw Failure(message:"Could not configure the USB port")};cfmakeraw(&cfg);cfsetspeed(&cfg,speed_t(B115200));cfg.c_cflag |= tcflag_t(CLOCAL|CREAD);cfg.c_cflag &= ~tcflag_t(HUPCL);tcsetattr(fd,TCSANOW,&cfg);var rts=Int32(TIOCM_RTS);var dtr=Int32(TIOCM_DTR);_ = ioctl(fd,TIOCMBIC,&rts);_ = ioctl(fd,TIOCMBIS,&dtr);tcflush(fd,TCIFLUSH)
+  var data=try JSONSerialization.data(withJSONObject:cmd);data.append(10);let wrote=data.withUnsafeBytes{Darwin.write(fd,$0.baseAddress,data.count)};guard wrote==data.count else{throw Failure(message:"Could not send the USB request")}
   let deadline=Date().addingTimeInterval(8);var retry=Date().addingTimeInterval(1.5);var buffer=Data();var bytes=[UInt8](repeating:0,count:4096)
-  while Date()<deadline{if Date()>=retry{_ = data.withUnsafeBytes{Darwin.write(fd,$0.baseAddress,data.count)};retry=Date().addingTimeInterval(1.5)};let n=Darwin.read(fd,&bytes,bytes.count);if n>0{buffer.append(contentsOf:bytes.prefix(n));if buffer.count>131072{throw Failure(message:"Слишком длинный ответ USB")}
+  while Date()<deadline{if Date()>=retry{_ = data.withUnsafeBytes{Darwin.write(fd,$0.baseAddress,data.count)};retry=Date().addingTimeInterval(1.5)};let n=Darwin.read(fd,&bytes,bytes.count);if n>0{buffer.append(contentsOf:bytes.prefix(n));if buffer.count>131072{throw Failure(message:"USB response is too long")}
     while let end=buffer.firstIndex(of:10){let line=buffer[..<end];buffer.removeSubrange(...end);if let object=try? JSONSerialization.jsonObject(with:Data(line)) as? [String:Any]{if object["type"] as? String == "ack",let error=object["error"] as? String{throw Failure(message:error)};if object["type"] as? String == kind{if kind=="history",let expected=cmd["after"] as? Int64,(object["requested_after"] as? NSNumber)?.int64Value != expected{continue};return Data(line)}}}
-   }else if n<0 && errno != EAGAIN && errno != EINTR{throw Failure(message:"USB отключён")};Thread.sleep(forTimeInterval:0.02)}
-  throw Failure(message:"Устройство не ответило по USB")
+   }else if n<0 && errno != EAGAIN && errno != EINTR{throw Failure(message:"USB disconnected")};Thread.sleep(forTimeInterval:0.02)}
+  throw Failure(message:"The device did not respond over USB")
  }
  func data(command:[String:Any],kind:String,path:String)async throws->Data{
   if !config.host.isEmpty {
-   do{let host=config.host.replacingOccurrences(of:"http://",with:"").trimmingCharacters(in:CharacterSet(charactersIn:"/ "));guard let url=URL(string:"http://\(host)\(path)") else{throw Failure(message:"Неверный адрес")};var req=URLRequest(url:url);req.timeoutInterval=4;req.setValue("Bearer "+config.token,forHTTPHeaderField:"Authorization");let(d,r)=try await URLSession.shared.data(for:req);guard (r as? HTTPURLResponse)?.statusCode==200 else{throw Failure(message:"Нет доступа по Wi-Fi: проверьте ключ")};mode="Wi-Fi";return d
-   }catch{if (try? Self.port())==nil{throw error}}
+   do{let host=config.host.replacingOccurrences(of:"http://",with:"").trimmingCharacters(in:CharacterSet(charactersIn:"/ "));guard let url=URL(string:"http://\(host)\(path)") else{throw Failure(message:"Invalid device address")};var req=URLRequest(url:url);req.timeoutInterval=4;req.cachePolicy = .reloadIgnoringLocalCacheData;req.setValue("close",forHTTPHeaderField:"Connection");req.setValue("Bearer "+config.token,forHTTPHeaderField:"Authorization");let(d,r)=try await session.data(for:req);let code=(r as? HTTPURLResponse)?.statusCode ?? 0;guard code==200 else{throw Failure(message:code==401 ? "Incorrect device access key" : "Device response error: HTTP \(code)")};mode="Wi-Fi";return d
+   }catch{resetSession();if (try? Self.port())==nil{if let urlError=error as? URLError{throw Failure(message:urlError.code == .cannotFindHost || urlError.code == .dnsLookupFailed ? "Device not found. Check that the Mac and device share a local network." : "Device unavailable over Wi-Fi. Reconnecting…")};throw error}}
   }
   mode="USB";return try await withCheckedThrowingContinuation{cont in Self.usbQueue.async{cont.resume(with:Result{try Self.usb(command,kind:kind)})}}
  }
@@ -87,7 +101,7 @@ final class Plot:NSView {
  var values:[(Double,Double)]=[];var hours:Double=24;var metric:Metric = .co2
  override func draw(_ dirtyRect:NSRect){NSColor.windowBackgroundColor.setFill();bounds.fill();let area=bounds.insetBy(dx:65,dy:45)
   let label:[NSAttributedString.Key:Any]=[.font:NSFont.systemFont(ofSize:12),.foregroundColor:NSColor.secondaryLabelColor]
-  guard values.count>1 else{("История появится после нескольких минут работы" as NSString).draw(at:NSPoint(x:65,y:bounds.midY),withAttributes:label);return}
+  guard values.count>1 else{("History will appear after a few minutes of recording" as NSString).draw(at:NSPoint(x:65,y:bounds.midY),withAttributes:label);return}
   let now=Date().timeIntervalSince1970,start=now-hours*3600;let range=metric.axisRange(values.map{$0.1}),low=range.lowerBound,high=range.upperBound
   (metric.unit as NSString).draw(at:NSPoint(x:12,y:bounds.maxY-25),withAttributes:label)
   for i in 0...4{let y=area.minY+area.height*Double(i)/4;NSColor.separatorColor.setStroke();let p=NSBezierPath();p.move(to:NSPoint(x:area.minX,y:y));p.line(to:NSPoint(x:area.maxX,y:y));p.stroke();(metric.tick(low+(high-low)*Double(i)/4) as NSString).draw(at:NSPoint(x:12,y:y-7),withAttributes:label)}
@@ -97,22 +111,49 @@ final class Plot:NSView {
 }
 
 final class App:NSObject,NSApplicationDelegate {
- var item:NSStatusItem!;var store:Store!;var transport:Transport!;var timer:Timer?;var busy=false;var current:BoardStatus?;var chartWindow:NSWindow?;var plot:Plot?
+ var item:NSStatusItem!;var store:Store!;var transport:Transport!;var timer:Timer?;var busy=false;var live=LiveState();var current:BoardStatus?{live.status};var chartWindow:NSWindow?;var plot:Plot?
  var root:URL{FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("CO2Monitor")}
  var configURL:URL{root.appendingPathComponent("config.json")}
  func applicationDidFinishLaunching(_ notification:Notification){do{store=try Store(url:root.appendingPathComponent("history.sqlite"))}catch{show(error.localizedDescription);NSApp.terminate(nil);return}
-  let config=(try? JSONDecoder().decode(Configuration.self,from:Data(contentsOf:configURL))) ?? Configuration();transport=Transport(config);item=NSStatusBar.system.statusItem(withLength:NSStatusItem.variableLength);item.button?.title="CO₂ —";menu(message:"Подключение…");refresh();timer=Timer.scheduledTimer(withTimeInterval:5,repeats:true){[weak self]_ in self?.refresh()}
+  let config=(try? JSONDecoder().decode(Configuration.self,from:Data(contentsOf:configURL))) ?? Configuration();transport=Transport(config);item=NSStatusBar.system.statusItem(withLength:NSStatusItem.variableLength);item.button?.title="CO₂ —";menu(message:"Connecting…");refresh();timer=Timer.scheduledTimer(withTimeInterval:5,repeats:true){[weak self]_ in self?.renderStatus();self?.refresh()}
  }
  func menu(message:String){let m=NSMenu();let status=NSMenuItem(title:message,action:nil,keyEquivalent:"");m.addItem(status)
-  if let s=current{if let t=s.temperature,let rh=s.humidity{m.addItem(withTitle:String(format:"%.1f °C · %.0f %% влажности",t,rh),action:nil,keyEquivalent:"")};m.addItem(withTitle:"На устройстве: \(s.journal.count) / \(s.journal.capacity) записей",action:nil,keyEquivalent:"");if !s.journal.healthy{m.addItem(withTitle:"Ошибка журнала на устройстве",action:nil,keyEquivalent:"")}}
-  m.addItem(.separator());for (title,action) in [("CO₂ · за 24 часа",#selector(graph24)),("CO₂ · за 7 дней",#selector(graph7)),("Температура · за 24 часа",#selector(temperature24Hours)),("Температура · за 7 дней",#selector(temperature7)),("Экспортировать CSV…",#selector(exportCSV)),("Настроить Wi-Fi по USB…",#selector(wifi)),("Адрес и ключ доступа…",#selector(settings)),("Открыть папку истории",#selector(folder))]{let i=NSMenuItem(title:title,action:action,keyEquivalent:"");i.target=self;m.addItem(i)};m.addItem(.separator());let q=NSMenuItem(title:"Завершить",action:#selector(quit),keyEquivalent:"q");q.target=self;m.addItem(q);item.menu=m
+  if let s=current{if live.fresh(),let t=s.temperature,let rh=s.humidity{m.addItem(withTitle:String(format:"%.1f °C · %.0f %% RH",t,rh),action:nil,keyEquivalent:"")};m.addItem(withTitle:"On device: \(s.journal.count) / \(s.journal.capacity) records",action:nil,keyEquivalent:"");if !s.journal.healthy{m.addItem(withTitle:"Device history error",action:nil,keyEquivalent:"")}}
+  m.addItem(.separator());for (title,action) in [("CO₂ · last 24 hours",#selector(graph24)),("CO₂ · last 7 days",#selector(graph7)),("Temperature · last 24 hours",#selector(temperature24Hours)),("Temperature · last 7 days",#selector(temperature7)),("Reconnect",#selector(reconnect)),("Export CSV…",#selector(exportCSV)),("Configure Wi-Fi over USB…",#selector(wifi)),("Device address and access key…",#selector(settings)),("Open history folder",#selector(folder))]{let i=NSMenuItem(title:title,action:action,keyEquivalent:"");i.target=self;m.addItem(i)};m.addItem(.separator());let q=NSMenuItem(title:"Quit",action:#selector(quit),keyEquivalent:"q");q.target=self;m.addItem(q);item.menu=m
  }
+ func renderStatus(){
+  if live.fresh(),let value=current?.co2{
+   item.button?.title="CO₂ \(Int(value.rounded())) ppm"
+   var message="\(transport.mode) · updated \(Int(live.age() ?? 0)) s ago"
+   if let history=live.historyError{message+=" · history: "+history}
+   else if let device=current?.device_id,((try? store.scalar("SELECT COUNT(*) FROM gaps WHERE device=?",[device])) ?? 0)>0{message+=" · history has gaps"}
+   menu(message:message)
+  }else{item.button?.title="CO₂ —";menu(message:live.connectionError ?? (current?.error.isEmpty == false ? current!.error : "Waiting for fresh readings · reconnecting…"))}
+ }
+ @objc func reconnect(){transport.resetSession();refresh()}
  func refresh(){guard !busy else{return};busy=true
-  Task{@MainActor in defer{busy=false};do{let s=try await transport.status();current=s;let base=(s.unix_s>0 ? s.unix_s : Date().timeIntervalSince1970)-s.uptime_s;try store.anchor(device:s.device_id,boot:s.boot,base:base)
-    var cursor=try store.cursor(s.device_id);if cursor>s.journal.newest_seq{throw Failure(message:"Журнал устройства сброшен; архив Mac сохранён")};var missed=false
-    for _ in 0..<8 {let h=try await transport.history(after:cursor);guard h.device_id==s.device_id else{throw Failure(message:"Ответило другое устройство")};missed = missed || h.gap;try store.ingest(h);if !h.more{break};guard h.next_after>cursor else{throw Failure(message:"Ошибка последовательности журнала")};cursor=h.next_after}
-    if let c=s.co2,let age=s.age_s,age<=20{item.button?.title="CO₂ \(Int(c.rounded())) ppm";menu(message:"\(transport.mode) · обновлено \(Int(age)) с назад"+((missed || ((try? store.scalar("SELECT COUNT(*) FROM gaps WHERE device=?",[s.device_id])) ?? 0)>0) ? " · есть пропуск истории":""))}else{item.button?.title="CO₂ —";menu(message:s.error.isEmpty ? "Ожидание измерения" : "Датчик: \(s.error)")};if let p=plot{p.values=(try? store.points(hours:p.hours,device:s.device_id,metric:p.metric)) ?? [];p.needsDisplay=true}
-   }catch{item.button?.title="CO₂ —";menu(message:error.localizedDescription)}}
+  Task{@MainActor in defer{busy=false;renderStatus()}
+   let status:BoardStatus
+   do{status=try await transport.status();live.accept(status);renderStatus()}
+   catch{live.fail(error.localizedDescription);return}
+   // Live readings have already been published. Archive errors must not hide them.
+   do{
+    let base=(status.unix_s>0 ? status.unix_s : Date().timeIntervalSince1970)-status.uptime_s
+    try store.anchor(device:status.device_id,boot:status.boot,base:base)
+    var cursor=try store.cursor(status.device_id)
+    if cursor>status.journal.newest_seq{throw Failure(message:"Device history was reset; the Mac archive is preserved")}
+    // Bound catch-up work so a large backlog cannot monopolize live refresh.
+    for _ in 0..<2{
+     let h=try await transport.history(after:cursor)
+     guard h.device_id==status.device_id && h.requested_after==cursor else{throw Failure(message:"History response does not match the request")}
+     try store.ingest(h)
+     if !h.more{break}
+     guard h.next_after>cursor else{throw Failure(message:"History cursor did not advance")};cursor=h.next_after
+    }
+    live.historyError=nil
+   }catch{live.historyError=error.localizedDescription}
+   if let p=plot{p.values=(try? store.points(hours:p.hours,device:status.device_id,metric:p.metric)) ?? [];p.needsDisplay=true}
+  }
  }
  func show(_ text:String){let a=NSAlert();a.messageText="CO2 Monitor";a.informativeText=text;a.runModal()}
  @objc func graph24(){graph(hours:24)}
@@ -120,18 +161,18 @@ final class App:NSObject,NSApplicationDelegate {
  @objc func temperature7(){graph(hours:7*24,metric:.temperature)}
  @objc func temperature24Hours(){graph(hours:24,metric:.temperature)}
  func graph(hours:Double,metric:Metric = .co2){
-  guard let s=current else{show("Сначала подключите устройство");return}
+  guard let device=current?.device_id ?? (try? store.latestDevice()) else{show("There is no archived data yet");return}
   let window=chartWindow ?? NSWindow(contentRect:NSRect(x:0,y:0,width:800,height:430),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
-  let period=hours==24 ? "последние 24 часа" : "последние 7 дней"
+  let period=hours==24 ? "last 24 hours" : "last 7 days"
   window.title="\(metric.title), \(metric.unit) · \(period)"
   let view=Plot(frame:window.contentView!.bounds);view.autoresizingMask=[.width,.height];view.hours=hours;view.metric=metric
-  view.values=(try? store.points(hours:hours,device:s.device_id,metric:metric)) ?? []
+  view.values=(try? store.points(hours:hours,device:device,metric:metric)) ?? []
   window.contentView=view;if chartWindow==nil{window.center()};window.isReleasedWhenClosed=false;window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true);chartWindow=window;plot=view
  }
- @objc func exportCSV(){let panel=NSSavePanel();panel.nameFieldStringValue="co2-history.csv";NSApp.activate(ignoringOtherApps:true);if panel.runModal() == .OK,let url=panel.url{do{try store.export(to:url)}catch{show(error.localizedDescription)}}}
+ @objc func exportCSV(){let panel=NSSavePanel();panel.title="Export history";panel.prompt="Export";panel.message="Choose where to save the CSV file.";panel.nameFieldStringValue="co2-history.csv";NSApp.activate(ignoringOtherApps:true);if panel.runModal() == .OK,let url=panel.url{do{try store.export(to:url)}catch{show(error.localizedDescription)}}}
  @objc func folder(){NSWorkspace.shared.open(root)}
- @objc func settings(){let a=NSAlert();a.messageText="Подключение по Wi-Fi";a.informativeText="Пустой адрес — подключение по USB. Для работы от power bank сначала настройте сеть через USB.";a.addButton(withTitle:"Сохранить");a.addButton(withTitle:"Отмена");let v=NSView(frame:NSRect(x:0,y:0,width:380,height:90));let host=NSTextField(frame:NSRect(x:0,y:55,width:380,height:25));host.placeholderString="co2-xxxxxx.local или IP";host.stringValue=transport.config.host;let key=NSSecureTextField(frame:NSRect(x:0,y:15,width:380,height:25));key.placeholderString="Ключ доступа";key.stringValue=transport.config.token;v.addSubview(host);v.addSubview(key);a.accessoryView=v;NSApp.activate(ignoringOtherApps:true);if a.runModal() == .alertFirstButtonReturn{let c=Configuration(host:host.stringValue.trimmingCharacters(in:.whitespacesAndNewlines),token:key.stringValue);do{try JSONEncoder().encode(c).write(to:configURL,options:.atomic);try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:configURL.path);transport.config=c;refresh()}catch{show(error.localizedDescription)}}}
- @objc func wifi(){guard let project=Bundle.main.object(forInfoDictionaryKey:"CO2ProjectPath") as? String else{show("Откройте настройку Wi-Fi в папке проекта");return};NSWorkspace.shared.open(URL(fileURLWithPath:project).appendingPathComponent("Настроить Wi-Fi.command"))}
+ @objc func settings(){let a=NSAlert();a.messageText="Wi-Fi connection";a.informativeText="Leave the address empty to use USB. To use a power bank, configure Wi-Fi over USB first.";a.addButton(withTitle:"Save");a.addButton(withTitle:"Cancel");let v=NSView(frame:NSRect(x:0,y:0,width:380,height:90));let host=NSTextField(frame:NSRect(x:0,y:55,width:380,height:25));host.placeholderString="co2-xxxxxx.local or IP";host.stringValue=transport.config.host;let key=NSSecureTextField(frame:NSRect(x:0,y:15,width:380,height:25));key.placeholderString="Access key";key.stringValue=transport.config.token;v.addSubview(host);v.addSubview(key);a.accessoryView=v;NSApp.activate(ignoringOtherApps:true);if a.runModal() == .alertFirstButtonReturn{let c=Configuration(host:host.stringValue.trimmingCharacters(in:.whitespacesAndNewlines),token:key.stringValue);do{try JSONEncoder().encode(c).write(to:configURL,options:.atomic);try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:configURL.path);transport.config=c;refresh()}catch{show(error.localizedDescription)}}}
+ @objc func wifi(){guard let project=Bundle.main.object(forInfoDictionaryKey:"CO2ProjectPath") as? String else{show("Open Configure Wi-Fi.command in the project folder");return};NSWorkspace.shared.open(URL(fileURLWithPath:project).appendingPathComponent("Configure Wi-Fi.command"))}
  @objc func quit(){NSApp.terminate(nil)}
 }
 func selfTest()throws{
@@ -157,6 +198,17 @@ func selfTest()throws{
  try check(co2.map{$0.1} == [902,903],"CO2 chart regression")
  try check(Metric.temperature.axisRange([-5,18.5]).lowerBound < -5,"negative temperature axis")
  try check(Metric.temperature.axisRange([22,22]).upperBound > 22,"constant temperature axis")
+ let sampleStatus=BoardStatus(device_id:"test-device",boot:3,uptime_s:60,unix_s:0,co2:812,temperature:23.4,humidity:45,age_s:1,error:"",journal:JournalInfo(healthy:true,capacity:32768,count:1,oldest_seq:1,newest_seq:1))
+ let instant=Date(timeIntervalSince1970:2000000000);var live=LiveState()
+ live.accept(sampleStatus,at:instant);live.historyError="timeout"
+ try check(live.fresh(at:instant),"history failure must preserve valid live readings")
+ try check(!live.fresh(at:instant.addingTimeInterval(21)),"stale live data must expire even during a busy request")
+ live.fail("offline");try check(!live.fresh(at:instant),"connection failure must mark data offline")
+ live.accept(sampleStatus,at:instant);try check(live.fresh(at:instant),"live state recovers after reconnection")
+ let archivedDevice=try db.latestDevice();try check(archivedDevice != nil,"archived graphs available without a live status")
+ let config=Transport.makeSession().configuration
+ try check(config.timeoutIntervalForResource==6 && !config.waitsForConnectivity,"network attempts have a bounded deadline")
+ print("PASS: live/archive isolation, stale timeout, reconnect recovery, offline archive selection, network deadline")
  print("PASS: SQLite import, cursor, time recovery, gap accounting, CSV; 7-day/24-hour temperature filtering, negative/constant axes, CO2 regression")
 }
 func usbCheck()throws{
@@ -166,6 +218,19 @@ func usbCheck()throws{
  var cursor=try store.cursor(status.device_id)
  for _ in 0..<10{let data=try Transport.usb(["cmd":"history","after":cursor,"limit":64],kind:"history");let h=try JSONDecoder().decode(History.self,from:data);try store.ingest(h);if !h.more{break};guard h.next_after>cursor else{throw Failure(message:"Cursor stalled")};cursor=h.next_after}
  print("PASS: native USB status/history; CO2=\(status.co2 ?? 0); saved=\(try store.cursor(status.device_id))")
+}
+func networkCheck()async throws{
+ let root=FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("CO2Monitor")
+ let config=try JSONDecoder().decode(Configuration.self,from:Data(contentsOf:root.appendingPathComponent("config.json")))
+ let transport=Transport(config);let status=try await transport.status()
+ guard transport.mode=="Wi-Fi" else{throw Failure(message:"Wi-Fi unavailable; status used USB fallback")}
+ let history=try await transport.history(after:max(0,status.journal.newest_seq-2))
+ guard transport.mode=="Wi-Fi",history.read_ok,history.device_id==status.device_id else{throw Failure(message:"Wi-Fi history verification failed")}
+ print("PASS: native Wi-Fi status/history; CO2=\(status.co2 ?? 0); recent records=\(history.records.count)")
+}
+if CommandLine.arguments.contains("--network-check"){
+ Task{do{try await networkCheck();exit(0)}catch{fputs("\(error)\n",stderr);exit(1)}}
+ dispatchMain()
 }
 if CommandLine.arguments.contains("--usb-check"){do{try usbCheck();exit(0)}catch{fputs("\(error)\n",stderr);exit(1)}}
 if CommandLine.arguments.contains("--self-test"){do{try selfTest();exit(0)}catch{fputs("\(error)\n",stderr);exit(1)}}

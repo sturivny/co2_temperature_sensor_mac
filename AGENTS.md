@@ -7,7 +7,8 @@ Read `README.md`, `docs/ARCHITECTURE.md`, `docs/PROTOCOL.md`,
 
 - Keep primary documentation and pull-request descriptions in English. Preserve
   the Russian user guides under `docs/ru` and keep links and technical facts aligned.
-  Documentation translation does not imply changing the existing Russian app UI.
+  The Mac app, setup prompts, and runtime messages are English. Keep Russian
+  documentation under docs/ru, but do not reintroduce Russian UI strings.
 - Never commit Wi-Fi credentials, API keys, `config.json`, SQLite databases,
   raw factory flash backups, `.tooling`, `.pio`, or local application builds.
   Credentials are entered locally and stored in device NVS; the Mac stores only

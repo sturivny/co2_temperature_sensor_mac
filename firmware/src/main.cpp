@@ -11,12 +11,16 @@
 #include <esp_timer.h>
 #include <sys/time.h>
 #include <time.h>
+#include <atomic>
+#include "NetworkLifecycle.h"
 #include "Journal.h"
 
 using co2::Record;
 constexpr uint8_t SDA_PIN=5,SCL_PIN=6,SENSOR_ADDR=0x62;
 U8G2_SSD1306_72X40_ER_F_HW_I2C display(U8G2_R0,U8X8_PIN_NONE,SCL_PIN,SDA_PIN);
 WebServer server(80);Preferences settings;
+co2::NetworkLifecycle networkLifecycle;std::atomic<uint32_t> networkGeneration{0};
+uint32_t networkRestarts=0;uint64_t lastMDNSAttempt=0;
 String deviceID,host,ssid,password,apiToken,line,lastError;
 uint32_t bootID=0;uint64_t lastReading=0,lastPoll=0,lastOLED=0,lastMinute=0,lastReconnect=0,lastRetry=0,lastOLEDProbe=0;
 bool sensorStarted=false,oledFound=false,mdnsStarted=false,httpStarted=false,ntpStarted=false;unsigned errors=0;
@@ -43,7 +47,8 @@ void startSensor(){lastRetry=uptime();sensorStarted=false;
  sensorStarted=command(0x21b1);lastError=sensorStarted?"warming_up":"sensor_start_failed";errors=0;
 }
 void recordJSON(JsonObject o,const Record&r){o["seq"]=r.seq;o["unix_s"]=r.unix_s;o["boot"]=r.boot;o["uptime_s"]=r.uptime_s;o["co2"]=r.co2;o["temperature"]=r.temp_centi/100.0;o["humidity"]=r.rh_centi/100.0;}
-void statusJSON(JsonDocument&d){d["type"]="status";d["firmware"]="0.1.1";d["device_id"]=deviceID;d["host"]=host+".local";d["boot"]=bootID;d["uptime_s"]=uptime();d["unix_s"]=unixNow();
+void statusJSON(JsonDocument&d){d["type"]="status";d["firmware"]="0.1.5";d["device_id"]=deviceID;d["host"]=host+".local";d["boot"]=bootID;d["uptime_s"]=uptime();d["unix_s"]=unixNow();
+ d["http_started"]=httpStarted;d["mdns_started"]=mdnsStarted;d["network_starts"]=networkRestarts;
  d["sensor_started"]=sensorStarted;d["oled_found"]=oledFound;d["sda"]=SDA_PIN;d["scl"]=SCL_PIN;d["error"]=lastError;
  d["wifi_connected"]=WiFi.status()==WL_CONNECTED;d["ip"]=WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():String("");d["paired"]=apiToken.length()>=32;
  if(lastReading){d["co2"]=latestCO2;d["temperature"]=latestT;d["humidity"]=latestRH;d["age_s"]=uptime()-lastReading;}else{d["co2"]=nullptr;d["age_s"]=nullptr;}
@@ -54,7 +59,23 @@ void historyJSON(JsonDocument&d,uint64_t after,size_t limit){d["type"]="history"
  bool ok=journal.after(after,limit,[&](const Record&r){recordJSON(a.createNestedObject(),r);next=r.seq;return true;});d["next_after"]=next;d["more"]=next<journal.newest();d["read_ok"]=ok;
 }
 void printJSON(JsonDocument&d){if(Serial){serializeJson(d,Serial);Serial.println();}}
-void startWiFi(){if(ssid.isEmpty())return;WiFi.mode(WIFI_STA);WiFi.setHostname(host.c_str());WiFi.setAutoReconnect(true);WiFi.begin(ssid.c_str(),password.c_str());lastReconnect=uptime();}
+void startWiFi(){if(ssid.isEmpty())return;WiFi.mode(WIFI_STA);WiFi.setHostname(host.c_str());WiFi.setAutoReconnect(true);WiFi.setSleep(false);WiFi.begin(ssid.c_str(),password.c_str());lastReconnect=uptime();}
+void serviceNetworking(){
+ bool connected=WiFi.status()==WL_CONNECTED;
+ uint32_t ip=connected?uint32_t(WiFi.localIP()):0;
+ auto action=networkLifecycle.update(connected,ip,networkGeneration.load(std::memory_order_relaxed));
+ if(action.stop){
+  if(httpStarted)server.stop();httpStarted=false;
+  if(mdnsStarted)MDNS.end();mdnsStarted=false;ntpStarted=false;
+ }
+ if(action.start){server.begin();httpStarted=true;++networkRestarts;
+  configTime(0,0,"pool.ntp.org","time.cloudflare.com");ntpStarted=true;
+ }
+ if(connected&&ip&&!mdnsStarted&&(action.start||uptime()-lastMDNSAttempt>=5)){
+  lastMDNSAttempt=uptime();mdnsStarted=MDNS.begin(host.c_str());
+  if(mdnsStarted)MDNS.addService("http","tcp",80);
+ }
+}
 bool authorized(){if(apiToken.length()<32||server.header("Authorization")!=String("Bearer ")+apiToken){server.send(401,"application/json","{\"error\":\"unauthorized\"}");return false;}return true;}
 void setupHTTP(){const char* headers[]={"Authorization"};server.collectHeaders(headers,1);
  server.on("/api/status",HTTP_GET,[]{if(!authorized())return;DynamicJsonDocument d(2048);statusJSON(d);String s;serializeJson(d,s);server.send(200,"application/json",s);});
@@ -71,6 +92,10 @@ void serialCommand(const String&input){DynamicJsonDocument req(1024),reply(2048)
   settings.putString("ssid",s);settings.putString("password",p);settings.putString("token",token);ssid=s;password=p;apiToken=token;
   WiFi.disconnect();startWiFi();reply["type"]="configured";reply["ok"]=true;reply["device_id"]=deviceID;reply["host"]=host+".local";printJSON(reply);
  }
+ else if(cmd=="reconnect"){
+  reply["ok"]=true;printJSON(reply);
+  WiFi.disconnect(false,false);startWiFi();
+ }
  else if(cmd=="history"){uint64_t after=req["after"]|uint64_t(0);size_t limit=constrain(size_t(req["limit"]|32U),size_t(1),size_t(64));DynamicJsonDocument h(16384);historyJSON(h,after,limit);printJSON(h);}
  else {reply["error"]="unknown_command";printJSON(reply);}
 }
@@ -85,21 +110,38 @@ void initOLED(){if(!probe(0x3c))return;
  // otherwise Arduino sees it as running and does not restore the I2C pin matrix.
  Wire.end();display.setBusClock(100000);display.begin();Wire.setClock(100000);Wire.setTimeOut(50);oledFound=probe(0x3c);
 }
-void updateOLED(){if(!oledFound){if(uptime()-lastOLEDProbe>=5){lastOLEDProbe=uptime();initOLED();}if(!oledFound)return;}uint64_t now=uptime();if(now==lastOLED)return;lastOLED=now;display.clearBuffer();display.setFont(u8g2_font_5x7_tf);display.drawStr(0,7,"CO2 ppm");display.drawStr(66,7,WiFi.status()==WL_CONNECTED?"W":"-");
- if(lastReading&&now-lastReading<=20){char n[10];snprintf(n,sizeof(n),"%u",latestCO2);display.setFont(u8g2_font_logisoso18_tn);display.drawStr(0,28,n);char bottom[24];snprintf(bottom,sizeof(bottom),"%.1fC %.0f%%",latestT,latestRH);display.setFont(u8g2_font_5x7_tf);display.drawStr(0,39,bottom);}
- else {display.setFont(u8g2_font_5x7_tf);display.drawStr(0,23,sensorStarted?"WAIT / STALE":"NO SENSOR");display.drawStr(0,37,journal.healthy()?"USB: status":"LOG ERROR");}display.sendBuffer();
+void updateOLED(){
+ if(!oledFound){if(uptime()-lastOLEDProbe>=5){lastOLEDProbe=uptime();initOLED();}if(!oledFound)return;}
+ uint64_t now=uptime();if(now==lastOLED)return;lastOLED=now;display.clearBuffer();
+ display.setFont(u8g2_font_5x7_tf);
+ if(lastReading&&now-lastReading<=20){
+  char co2[16],temperature[16],humidity[16];
+  snprintf(co2,sizeof(co2),"CO2 %uppm",latestCO2);
+  snprintf(temperature,sizeof(temperature),"T %.1fC",latestT);
+  snprintf(humidity,sizeof(humidity),"RH %.0f%%",latestRH);
+  display.setFont(u8g2_font_6x12_tf);
+  display.drawStr(0,11,humidity);display.drawStr(0,24,temperature);
+  display.drawStr(0,37,co2);display.drawStr(66,11,WiFi.status()==WL_CONNECTED?"W":"-");
+ }else{
+  display.drawStr(0,8,"CO2 ppm");display.drawStr(66,8,WiFi.status()==WL_CONNECTED?"W":"-");
+  display.drawStr(0,23,sensorStarted?"WAIT / STALE":"NO SENSOR");
+  display.drawStr(0,37,journal.healthy()?"USB: status":"LOG ERROR");
+ }
+ display.sendBuffer();
 }
+
 void setup(){Serial.begin(115200);delay(300);bootID=esp_random();uint64_t mac=ESP.getEfuseMac();char id[20];snprintf(id,sizeof(id),"%04x%08x",uint16_t(mac>>32),uint32_t(mac));deviceID=id;host="co2-"+deviceID.substring(6);
  Wire.begin(SDA_PIN,SCL_PIN,100000);Wire.setTimeOut(50);initOLED();
  flash.part=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,esp_partition_subtype_t(0x40),"journal");journal.begin();
  settings.begin("co2-config",false);ssid=settings.getString("ssid","");password=settings.getString("password","");apiToken=settings.getString("token","");
- startSensor();startWiFi();setupHTTP();lastMinute=uptime();DynamicJsonDocument d(2048);statusJSON(d);d["reset_reason"]=int(esp_reset_reason());printJSON(d);
+ WiFi.onEvent([](WiFiEvent_t event,WiFiEventInfo_t){
+  if(event==ARDUINO_EVENT_WIFI_STA_DISCONNECTED||event==ARDUINO_EVENT_WIFI_STA_GOT_IP||event==ARDUINO_EVENT_WIFI_STA_LOST_IP)
+   networkGeneration.fetch_add(1,std::memory_order_relaxed);
+ });
+ startSensor();setupHTTP();startWiFi();lastMinute=uptime();DynamicJsonDocument d(2048);statusJSON(d);d["reset_reason"]=int(esp_reset_reason());printJSON(d);
 }
 void loop(){uint64_t now=uptime();while(Serial.available()){char c=char(Serial.read());if(c=='\n'){if(!line.isEmpty())serialCommand(line);line="";}else if(c!='\r'){if(line.length()<768)line+=c;else line="";}}
- pollSensor();updateOLED();if(httpStarted)server.handleClient();
- if(WiFi.status()==WL_CONNECTED&&!httpStarted){server.begin();httpStarted=true;}
- if(WiFi.status()==WL_CONNECTED&&!ntpStarted){configTime(0,0,"pool.ntp.org","time.cloudflare.com");ntpStarted=true;}
- if(WiFi.status()==WL_CONNECTED&&!mdnsStarted){mdnsStarted=MDNS.begin(host.c_str());if(mdnsStarted)MDNS.addService("http","tcp",80);}
+ pollSensor();updateOLED();serviceNetworking();if(httpStarted)server.handleClient();
  if(!ssid.isEmpty()&&WiFi.status()!=WL_CONNECTED&&now-lastReconnect>=30){WiFi.reconnect();lastReconnect=now;}
  if(now-lastMinute>=60){lastMinute=now;if(samples){Record r{};r.unix_s=unixNow();r.boot=bootID;r.uptime_s=now;r.co2=uint16_t(lround(sumCO2/samples));r.temp_centi=int16_t(lround(sumT/samples*100));r.rh_centi=uint16_t(lround(sumRH/samples*100));if(!journal.append(r))lastError="flash_journal_error";sumCO2=sumT=sumRH=0;samples=0;}}
  delay(2);

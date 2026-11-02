@@ -94,3 +94,55 @@ now offers the same periods as CO₂: 24 hours and 7 days. The original 0.2.0 en
 above is historical evidence, not the current behavior. Regression fixtures now
 distinguish a reading six hours old from one six days old and exclude records
 older than a week or dated in the future. Build, signing and host checks passed.
+
+## Intermittent connection recovery — 2 November 2026
+
+- Observed: OLED measurements and Wi-Fi association continued, the hostname
+  resolved and ICMP partly responded, but HTTP timed out. Moving to USB power
+  restarted the device and restored HTTP 200 at the same address.
+- Firmware 0.1.1 started HTTP/mDNS only once. Firmware 0.1.2 restarts services
+  on disconnect, address change or a coalesced reconnect event; disables Wi-Fi
+  sleep and adds USB-only `reconnect` diagnostics and status counters.
+- Full 4 MiB pre-update flash backup saved locally with mode 0600. Only the app
+  at 0x10000 was flashed; write/hash verification passed. The USB port disappeared
+  during watchdog reset, producing an esptool cleanup error; subsequent status
+  confirmed firmware 0.1.2, healthy retained history and working OLED/sensor.
+- Three deliberate Wi-Fi reconnect cycles passed on the physical device: HTTP
+  and mDNS history recovered, boot ID remained unchanged, journal stayed healthy
+  and its sequence did not decrease. No credentials were changed.
+- Host tests passed for disconnect/same-IP reconnect/DHCP changes/coalesced
+  events, live/history error isolation, stale age, recovery, archived-device
+  selection and bounded session deadlines, alongside previous journal/chart tests.
+- Native app `--network-check` passed Wi-Fi status and history without accepting
+  USB fallback. App 0.2.2 was signed, installed and restarted with archive/settings
+  retained. Long-term radio behavior and power-bank endurance remain unverified.
+
+- User confirmed readings remained visible and updating after moving back to
+  the charger/power bank. Native Wi-Fi status/history passed again afterward.
+
+## OLED and English interface — 2 November 2026
+
+- Mac app 0.3.0: menus, chart titles, dialogs, setup/CLI errors and metadata
+  translated to English, supported localization set to `en`. Source scan found
+  no Cyrillic strings in the app, provisioning helper or build metadata. Host
+  tests and signed build passed; installed app retains its archive/settings.
+- OLED firmware 0.1.4: humidity at the top and temperature in the middle use
+  7×13 bold glyphs; bottom CO₂ uses 5×7 glyphs with ppm and Wi-Fi state.
+  Widths for maximum CO₂, negative temperature and 100% RH were checked with
+  the actual U8g2 fonts. A real 72×40 framebuffer preview was rendered.
+- User confirmed the initial smaller-CO₂/larger-temperature/humidity layout,
+  then requested swapping humidity and CO₂. The final row order reflects that
+  correction; physical confirmation of the swapped order is separate.
+
+- Final firmware 0.1.4 was hash-verified and read back via status after upload;
+  the journal stayed healthy and its newest sequence did not decrease. Native
+  Wi-Fi status/history passed again, and the English app 0.3.0 was restarted.
+
+### Final uniform-font layout (firmware 0.1.5)
+
+The final requested layout uses the same 6×12 font and size for humidity,
+temperature and CO₂, in that order from top to bottom. This supersedes the
+earlier mixed-size layout described above. Actual-font width checks and the
+framebuffer preview were repeated, firmware rebuilt and hash-verified on the
+device, and status confirmed 0.1.5 with a healthy journal and retained sequence.
+Native Wi-Fi status/history passed and the English app was restarted.

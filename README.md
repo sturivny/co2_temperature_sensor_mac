@@ -58,8 +58,8 @@ is connected to 3V3, not directly to USB 5 V.
    charts use the existing archive and degrees Celsius; missing history stays blank.
 
 The app targets Apple Silicon and macOS 13+. Other macOS versions have not been
-verified separately. Builds are locally ad-hoc signed. The existing app interface
-and provisioning prompts are in Russian; this change translates the documentation.
+verified separately. Builds are locally ad-hoc signed. The app interface, dialogs, errors and Wi-Fi setup prompts are in English.
+Russian documentation is preserved under `docs/ru`.
 Do not run the app and a USB diagnostic simultaneously: they share one port.
 The original Russian launcher names remain available for compatibility.
 
@@ -114,6 +114,25 @@ The scan should find decimal addresses 60 (0x3C) and 98 (0x62). If the sensor
 is missing, check common ground, power and SDA/SCL. Wiring and first boot must
 be checked on real hardware; successful compilation alone cannot confirm them.
 
+## If the OLED works but the Mac has no readings
+
+The OLED's `W` means Wi-Fi association, not proof that the HTTP service is reachable.
+Keep the Mac and device on the same reachable local network. The app retries
+automatically; its **Reconnect** menu item restarts a connection attempt.
+History-download failures are reported separately from live readings. Stored
+graphs remain available offline.
+
+Firmware 0.1.2 restores HTTP/discovery after Wi-Fi reconnects; app 0.2.2 uses
+bounded requests and separates live status from archive synchronization. For a
+local diagnostic, close the app first, then run:
+
+```bash
+"build/CO2 Monitor.app/Contents/MacOS/CO2Monitor" --network-check
+```
+
+This verifies native Wi-Fi status/history and fails if it had to use USB instead.
+Do not erase flash or reconfigure credentials as a routine connectivity fix.
+
 ## Build and flash
 
 ```bash
@@ -139,3 +158,13 @@ CAD generation requires Python 3.12+ for the pinned dependencies:
 Follow the [enclosure guide](enclosure/v0.9/README.md) for generators, checks and
 print orientation. Ready-to-print STL files are included; printing does not
 require Python or OpenSCAD.
+
+## OLED layout (firmware 0.1.5)
+
+All three readings use the same 6×12 font and size. Humidity is the top row,
+temperature is the middle row, and CO₂/ppm is the bottom row. The Wi-Fi
+indicator is beside humidity. The display
+remains 72×40 pixels; worst-case value widths were checked using the actual
+U8g2 fonts. Firmware/network recovery and stored measurements are unchanged.
+
+![OLED layout, rendered with actual U8g2 fonts and illustrative values](docs/images/oled-layout.png)

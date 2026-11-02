@@ -1,4 +1,4 @@
-# Device protocol (firmware 0.1.1)
+# Device protocol (firmware 0.1.5)
 
 ## USB
 
@@ -13,7 +13,9 @@ The input line limit is 768 bytes; JSON request storage is 1024 bytes.
 | `scan` | none | `scan`, decimal `addresses` array |
 | `set_time` | `unix_s` >= 1735689600 | `ack`, `ok` or `error` |
 | `configure` | `ssid`, `password`, `token` | `configured`, `ok`, `device_id`, `host` |
-| `history` | `after` (default 0), `limit` (1–64) | `history` |
+| `reconnect` | none; USB-only diagnostic Wi-Fi reconnect, no settings erase | `ack`, `ok` |
+| `history` | `after` (default 0), `limit` (1–64) | `reconnect` | none; USB-only diagnostic Wi-Fi reconnect, no settings erase | `ack`, `ok` |
+| `history` |
 
 Configuration limits: nonempty SSID up to 32 bytes, password up to 64 bytes,
 API token 32–64 bytes. Generate a random token locally; never commit an actual
@@ -22,7 +24,7 @@ Unknown commands / invalid requests return `type: ack` plus `error`.
 
 Status fields: `firmware`, `device_id`, `host`, `boot`, `uptime_s`, `unix_s`,
 `sensor_started`, `oled_found`, `sda`, `scl`, `error`, `wifi_connected`, `ip`,
-`paired`, `co2`, `temperature`, `humidity`, `age_s`, and `journal`.
+`paired`, `http_started`, `mdns_started`, `network_starts`, `co2`, `temperature`, `humidity`, `age_s`, and `journal`.
 Before a first reading `co2` and `age_s` are null; temperature/humidity may be
 absent. `age_s` determines freshness. Journal fields: `healthy`, `capacity`,
 `count`, `oldest_seq`, `newest_seq`, `interval_s`.
