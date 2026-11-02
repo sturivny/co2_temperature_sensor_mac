@@ -119,3 +119,21 @@ older than a week or dated in the future. Build, signing and host checks passed.
 
 - User confirmed readings remained visible and updating after moving back to
   the charger/power bank. Native Wi-Fi status/history passed again afterward.
+
+## OLED and English interface — 2 November 2026
+
+- Mac app 0.3.0: menus, chart titles, dialogs, setup/CLI errors and metadata
+  translated to English, supported localization set to `en`. Source scan found
+  no Cyrillic strings in the app, provisioning helper or build metadata. Host
+  tests and signed build passed; installed app retains its archive/settings.
+- OLED firmware 0.1.4: humidity at the top and temperature in the middle use
+  7×13 bold glyphs; bottom CO₂ uses 5×7 glyphs with ppm and Wi-Fi state.
+  Widths for maximum CO₂, negative temperature and 100% RH were checked with
+  the actual U8g2 fonts. A real 72×40 framebuffer preview was rendered.
+- User confirmed the initial smaller-CO₂/larger-temperature/humidity layout,
+  then requested swapping humidity and CO₂. The final row order reflects that
+  correction; physical confirmation of the swapped order is separate.
+
+- Final firmware 0.1.4 was hash-verified and read back via status after upload;
+  the journal stayed healthy and its newest sequence did not decrease. Native
+  Wi-Fi status/history passed again, and the English app 0.3.0 was restarted.

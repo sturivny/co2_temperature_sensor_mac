@@ -1,4 +1,4 @@
-# Device protocol (firmware 0.1.2)
+# Device protocol (firmware 0.1.4)
 
 ## USB
 

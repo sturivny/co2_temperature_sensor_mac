@@ -47,7 +47,7 @@ void startSensor(){lastRetry=uptime();sensorStarted=false;
  sensorStarted=command(0x21b1);lastError=sensorStarted?"warming_up":"sensor_start_failed";errors=0;
 }
 void recordJSON(JsonObject o,const Record&r){o["seq"]=r.seq;o["unix_s"]=r.unix_s;o["boot"]=r.boot;o["uptime_s"]=r.uptime_s;o["co2"]=r.co2;o["temperature"]=r.temp_centi/100.0;o["humidity"]=r.rh_centi/100.0;}
-void statusJSON(JsonDocument&d){d["type"]="status";d["firmware"]="0.1.2";d["device_id"]=deviceID;d["host"]=host+".local";d["boot"]=bootID;d["uptime_s"]=uptime();d["unix_s"]=unixNow();
+void statusJSON(JsonDocument&d){d["type"]="status";d["firmware"]="0.1.4";d["device_id"]=deviceID;d["host"]=host+".local";d["boot"]=bootID;d["uptime_s"]=uptime();d["unix_s"]=unixNow();
  d["http_started"]=httpStarted;d["mdns_started"]=mdnsStarted;d["network_starts"]=networkRestarts;
  d["sensor_started"]=sensorStarted;d["oled_found"]=oledFound;d["sda"]=SDA_PIN;d["scl"]=SCL_PIN;d["error"]=lastError;
  d["wifi_connected"]=WiFi.status()==WL_CONNECTED;d["ip"]=WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():String("");d["paired"]=apiToken.length()>=32;
@@ -110,10 +110,26 @@ void initOLED(){if(!probe(0x3c))return;
  // otherwise Arduino sees it as running and does not restore the I2C pin matrix.
  Wire.end();display.setBusClock(100000);display.begin();Wire.setClock(100000);Wire.setTimeOut(50);oledFound=probe(0x3c);
 }
-void updateOLED(){if(!oledFound){if(uptime()-lastOLEDProbe>=5){lastOLEDProbe=uptime();initOLED();}if(!oledFound)return;}uint64_t now=uptime();if(now==lastOLED)return;lastOLED=now;display.clearBuffer();display.setFont(u8g2_font_5x7_tf);display.drawStr(0,7,"CO2 ppm");display.drawStr(66,7,WiFi.status()==WL_CONNECTED?"W":"-");
- if(lastReading&&now-lastReading<=20){char n[10];snprintf(n,sizeof(n),"%u",latestCO2);display.setFont(u8g2_font_logisoso18_tn);display.drawStr(0,28,n);char bottom[24];snprintf(bottom,sizeof(bottom),"%.1fC %.0f%%",latestT,latestRH);display.setFont(u8g2_font_5x7_tf);display.drawStr(0,39,bottom);}
- else {display.setFont(u8g2_font_5x7_tf);display.drawStr(0,23,sensorStarted?"WAIT / STALE":"NO SENSOR");display.drawStr(0,37,journal.healthy()?"USB: status":"LOG ERROR");}display.sendBuffer();
+void updateOLED(){
+ if(!oledFound){if(uptime()-lastOLEDProbe>=5){lastOLEDProbe=uptime();initOLED();}if(!oledFound)return;}
+ uint64_t now=uptime();if(now==lastOLED)return;lastOLED=now;display.clearBuffer();
+ display.setFont(u8g2_font_5x7_tf);
+ if(lastReading&&now-lastReading<=20){
+  char co2[16],temperature[16],humidity[16];
+  snprintf(co2,sizeof(co2),"CO2 %uppm",latestCO2);
+  snprintf(temperature,sizeof(temperature),"T %.1fC",latestT);
+  snprintf(humidity,sizeof(humidity),"RH %.0f%%",latestRH);
+  display.drawStr(0,37,co2);display.drawStr(66,37,WiFi.status()==WL_CONNECTED?"W":"-");
+  display.setFont(u8g2_font_7x13B_mf);
+  display.drawStr(0,12,humidity);display.drawStr(0,25,temperature);
+ }else{
+  display.drawStr(0,8,"CO2 ppm");display.drawStr(66,8,WiFi.status()==WL_CONNECTED?"W":"-");
+  display.drawStr(0,23,sensorStarted?"WAIT / STALE":"NO SENSOR");
+  display.drawStr(0,37,journal.healthy()?"USB: status":"LOG ERROR");
+ }
+ display.sendBuffer();
 }
+
 void setup(){Serial.begin(115200);delay(300);bootID=esp_random();uint64_t mac=ESP.getEfuseMac();char id[20];snprintf(id,sizeof(id),"%04x%08x",uint16_t(mac>>32),uint32_t(mac));deviceID=id;host="co2-"+deviceID.substring(6);
  Wire.begin(SDA_PIN,SCL_PIN,100000);Wire.setTimeOut(50);initOLED();
  flash.part=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,esp_partition_subtype_t(0x40),"journal");journal.begin();

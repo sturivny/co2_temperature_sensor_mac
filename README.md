@@ -58,8 +58,8 @@ is connected to 3V3, not directly to USB 5 V.
    charts use the existing archive and degrees Celsius; missing history stays blank.
 
 The app targets Apple Silicon and macOS 13+. Other macOS versions have not been
-verified separately. Builds are locally ad-hoc signed. The existing app interface
-and provisioning prompts are in Russian; this change translates the documentation.
+verified separately. Builds are locally ad-hoc signed. The app interface, dialogs, errors and Wi-Fi setup prompts are in English.
+Russian documentation is preserved under `docs/ru`.
 Do not run the app and a USB diagnostic simultaneously: they share one port.
 The original Russian launcher names remain available for compatibility.
 
@@ -118,7 +118,7 @@ be checked on real hardware; successful compilation alone cannot confirm them.
 
 The OLED's `W` means Wi-Fi association, not proof that the HTTP service is reachable.
 Keep the Mac and device on the same reachable local network. The app retries
-automatically; its **Переподключиться** menu item restarts a connection attempt.
+automatically; its **Reconnect** menu item restarts a connection attempt.
 History-download failures are reported separately from live readings. Stored
 graphs remain available offline.
 
@@ -158,3 +158,12 @@ CAD generation requires Python 3.12+ for the pinned dependencies:
 Follow the [enclosure guide](enclosure/v0.9/README.md) for generators, checks and
 print orientation. Ready-to-print STL files are included; printing does not
 require Python or OpenSCAD.
+
+## OLED layout (firmware 0.1.4)
+
+Humidity is the large top row, temperature is the large middle row, and CO₂
+is the smaller bottom row with its ppm unit and Wi-Fi indicator. The display
+remains 72×40 pixels; worst-case value widths were checked using the actual
+U8g2 fonts. Firmware/network recovery and stored measurements are unchanged.
+
+![OLED layout, rendered with actual U8g2 fonts and illustrative values](docs/images/oled-layout.png)

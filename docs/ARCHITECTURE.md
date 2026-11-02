@@ -120,3 +120,13 @@ archive failures are shown separately and cannot hide valid live readings.
 Catch-up is limited to two pages per refresh. `LiveState` ages readings using
 Mac elapsed time, so a pending request cannot leave old values marked fresh.
 Graphs can select an archived device even when no live status is available.
+
+## English interface and OLED layout
+
+App 0.3.0 declares English as its development language and supported localization.
+Menu labels, chart titles, dialogs, error messages, local-network usage text and
+USB Wi-Fi provisioning prompts are English. The app opens the English-named
+provisioning launcher; historical Russian-named aliases remain compatible.
+Firmware 0.1.4 places humidity and temperature in bold 7×13 font rows (baselines
+12 and 25), with CO₂ in the small 5×7 row at baseline 37. The Wi-Fi indicator is
+on the bottom row. CO₂ descenders fit inside the 40-pixel framebuffer.
