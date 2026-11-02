@@ -102,3 +102,21 @@ axis preserves negative temperatures and has a nonzero span for constant values.
 The chart window is reused, and refresh preserves its selected metric and period.
 Gaps longer than three minutes are not bridged. No database migration, firmware
 update or synthetic backfill is needed. Both periods match the existing CO₂ views: 24 hours and 7 days.
+
+## Connection recovery (firmware 0.1.2, app 0.2.2)
+
+The firmware tracks Wi-Fi disconnect/got-IP/lost-IP events with an atomic
+generation counter. `NetworkLifecycle` restarts HTTP and mDNS after a dropped
+connection, changed address, or a reconnect completed between loop iterations.
+Network service calls run in the main loop, not the Wi-Fi callback. mDNS failures
+retry after five seconds. Wi-Fi power saving is disabled for this externally
+powered monitor; resulting power-bank runtime has not been measured.
+
+The Mac uses a dedicated ephemeral HTTP session with a four-second request
+timeout and six-second resource deadline. Requests ask to close the HTTP
+connection rather than leaving the single-client device server occupied.
+Failed sessions are replaced. Status is rendered before history catch-up;
+archive failures are shown separately and cannot hide valid live readings.
+Catch-up is limited to two pages per refresh. `LiveState` ages readings using
+Mac elapsed time, so a pending request cannot leave old values marked fresh.
+Graphs can select an archived device even when no live status is available.

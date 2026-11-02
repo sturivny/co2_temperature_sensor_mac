@@ -94,3 +94,28 @@ now offers the same periods as CO₂: 24 hours and 7 days. The original 0.2.0 en
 above is historical evidence, not the current behavior. Regression fixtures now
 distinguish a reading six hours old from one six days old and exclude records
 older than a week or dated in the future. Build, signing and host checks passed.
+
+## Intermittent connection recovery — 2 November 2026
+
+- Observed: OLED measurements and Wi-Fi association continued, the hostname
+  resolved and ICMP partly responded, but HTTP timed out. Moving to USB power
+  restarted the device and restored HTTP 200 at the same address.
+- Firmware 0.1.1 started HTTP/mDNS only once. Firmware 0.1.2 restarts services
+  on disconnect, address change or a coalesced reconnect event; disables Wi-Fi
+  sleep and adds USB-only `reconnect` diagnostics and status counters.
+- Full 4 MiB pre-update flash backup saved locally with mode 0600. Only the app
+  at 0x10000 was flashed; write/hash verification passed. The USB port disappeared
+  during watchdog reset, producing an esptool cleanup error; subsequent status
+  confirmed firmware 0.1.2, healthy retained history and working OLED/sensor.
+- Three deliberate Wi-Fi reconnect cycles passed on the physical device: HTTP
+  and mDNS history recovered, boot ID remained unchanged, journal stayed healthy
+  and its sequence did not decrease. No credentials were changed.
+- Host tests passed for disconnect/same-IP reconnect/DHCP changes/coalesced
+  events, live/history error isolation, stale age, recovery, archived-device
+  selection and bounded session deadlines, alongside previous journal/chart tests.
+- Native app `--network-check` passed Wi-Fi status and history without accepting
+  USB fallback. App 0.2.2 was signed, installed and restarted with archive/settings
+  retained. Long-term radio behavior and power-bank endurance remain unverified.
+
+- User confirmed readings remained visible and updating after moving back to
+  the charger/power bank. Native Wi-Fi status/history passed again afterward.

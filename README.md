@@ -114,6 +114,25 @@ The scan should find decimal addresses 60 (0x3C) and 98 (0x62). If the sensor
 is missing, check common ground, power and SDA/SCL. Wiring and first boot must
 be checked on real hardware; successful compilation alone cannot confirm them.
 
+## If the OLED works but the Mac has no readings
+
+The OLED's `W` means Wi-Fi association, not proof that the HTTP service is reachable.
+Keep the Mac and device on the same reachable local network. The app retries
+automatically; its **Переподключиться** menu item restarts a connection attempt.
+History-download failures are reported separately from live readings. Stored
+graphs remain available offline.
+
+Firmware 0.1.2 restores HTTP/discovery after Wi-Fi reconnects; app 0.2.2 uses
+bounded requests and separates live status from archive synchronization. For a
+local diagnostic, close the app first, then run:
+
+```bash
+"build/CO2 Monitor.app/Contents/MacOS/CO2Monitor" --network-check
+```
+
+This verifies native Wi-Fi status/history and fails if it had to use USB instead.
+Do not erase flash or reconfigure credentials as a routine connectivity fix.
+
 ## Build and flash
 
 ```bash

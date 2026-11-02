@@ -11,11 +11,12 @@ for folder in ("tools", "enclosure/v0.8", "enclosure/v0.9"):
     for source in (root / folder).glob("*.py"):
         py_compile.compile(str(source), doraise=True)
 with tempfile.TemporaryDirectory(prefix="co2-check-") as folder:
-    binary = Path(folder) / "journal_test"
-    subprocess.run(["clang++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
-                    "-I" + str(root / "firmware/include"),
-                    str(root / "tests/journal_test.cpp"), "-o", str(binary)], check=True)
-    subprocess.run([str(binary)], check=True)
+    for name in ("journal_test", "network_test"):
+        binary = Path(folder) / name
+        subprocess.run(["clang++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                        "-I" + str(root / "firmware/include"),
+                        str(root / ("tests/" + name + ".cpp")), "-o", str(binary)], check=True)
+        subprocess.run([str(binary)], check=True)
     if sys.platform == "darwin":
         subprocess.run([sys.executable, str(root / "tools/build_macos.py")], check=True)
         subprocess.run([str(root / "build/CO2 Monitor.app/Contents/MacOS/CO2Monitor"),
