@@ -159,10 +159,11 @@ Follow the [enclosure guide](enclosure/v0.9/README.md) for generators, checks an
 print orientation. Ready-to-print STL files are included; printing does not
 require Python or OpenSCAD.
 
-## OLED layout (firmware 0.1.4)
+## OLED layout (firmware 0.1.5)
 
-Humidity is the large top row, temperature is the large middle row, and CO₂
-is the smaller bottom row with its ppm unit and Wi-Fi indicator. The display
+All three readings use the same 6×12 font and size. Humidity is the top row,
+temperature is the middle row, and CO₂/ppm is the bottom row. The Wi-Fi
+indicator is beside humidity. The display
 remains 72×40 pixels; worst-case value widths were checked using the actual
 U8g2 fonts. Firmware/network recovery and stored measurements are unchanged.
 

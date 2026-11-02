@@ -127,6 +127,6 @@ App 0.3.0 declares English as its development language and supported localizatio
 Menu labels, chart titles, dialogs, error messages, local-network usage text and
 USB Wi-Fi provisioning prompts are English. The app opens the English-named
 provisioning launcher; historical Russian-named aliases remain compatible.
-Firmware 0.1.4 places humidity and temperature in bold 7×13 font rows (baselines
-12 and 25), with CO₂ in the small 5×7 row at baseline 37. The Wi-Fi indicator is
-on the bottom row. CO₂ descenders fit inside the 40-pixel framebuffer.
+Firmware 0.1.5 uses the same 6×12 font for all readings. Humidity, temperature
+and CO₂ use baselines 11, 24 and 37 respectively. The Wi-Fi indicator is
+on the humidity row. CO₂ descenders fit inside the 40-pixel framebuffer.

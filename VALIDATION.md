@@ -137,3 +137,12 @@ older than a week or dated in the future. Build, signing and host checks passed.
 - Final firmware 0.1.4 was hash-verified and read back via status after upload;
   the journal stayed healthy and its newest sequence did not decrease. Native
   Wi-Fi status/history passed again, and the English app 0.3.0 was restarted.
+
+### Final uniform-font layout (firmware 0.1.5)
+
+The final requested layout uses the same 6×12 font and size for humidity,
+temperature and CO₂, in that order from top to bottom. This supersedes the
+earlier mixed-size layout described above. Actual-font width checks and the
+framebuffer preview were repeated, firmware rebuilt and hash-verified on the
+device, and status confirmed 0.1.5 with a healthy journal and retained sequence.
+Native Wi-Fi status/history passed and the English app was restarted.

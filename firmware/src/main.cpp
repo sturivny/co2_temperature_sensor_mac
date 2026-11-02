@@ -47,7 +47,7 @@ void startSensor(){lastRetry=uptime();sensorStarted=false;
  sensorStarted=command(0x21b1);lastError=sensorStarted?"warming_up":"sensor_start_failed";errors=0;
 }
 void recordJSON(JsonObject o,const Record&r){o["seq"]=r.seq;o["unix_s"]=r.unix_s;o["boot"]=r.boot;o["uptime_s"]=r.uptime_s;o["co2"]=r.co2;o["temperature"]=r.temp_centi/100.0;o["humidity"]=r.rh_centi/100.0;}
-void statusJSON(JsonDocument&d){d["type"]="status";d["firmware"]="0.1.4";d["device_id"]=deviceID;d["host"]=host+".local";d["boot"]=bootID;d["uptime_s"]=uptime();d["unix_s"]=unixNow();
+void statusJSON(JsonDocument&d){d["type"]="status";d["firmware"]="0.1.5";d["device_id"]=deviceID;d["host"]=host+".local";d["boot"]=bootID;d["uptime_s"]=uptime();d["unix_s"]=unixNow();
  d["http_started"]=httpStarted;d["mdns_started"]=mdnsStarted;d["network_starts"]=networkRestarts;
  d["sensor_started"]=sensorStarted;d["oled_found"]=oledFound;d["sda"]=SDA_PIN;d["scl"]=SCL_PIN;d["error"]=lastError;
  d["wifi_connected"]=WiFi.status()==WL_CONNECTED;d["ip"]=WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():String("");d["paired"]=apiToken.length()>=32;
@@ -119,9 +119,9 @@ void updateOLED(){
   snprintf(co2,sizeof(co2),"CO2 %uppm",latestCO2);
   snprintf(temperature,sizeof(temperature),"T %.1fC",latestT);
   snprintf(humidity,sizeof(humidity),"RH %.0f%%",latestRH);
-  display.drawStr(0,37,co2);display.drawStr(66,37,WiFi.status()==WL_CONNECTED?"W":"-");
-  display.setFont(u8g2_font_7x13B_mf);
-  display.drawStr(0,12,humidity);display.drawStr(0,25,temperature);
+  display.setFont(u8g2_font_6x12_tf);
+  display.drawStr(0,11,humidity);display.drawStr(0,24,temperature);
+  display.drawStr(0,37,co2);display.drawStr(66,11,WiFi.status()==WL_CONNECTED?"W":"-");
  }else{
   display.drawStr(0,8,"CO2 ppm");display.drawStr(66,8,WiFi.status()==WL_CONNECTED?"W":"-");
   display.drawStr(0,23,sensorStarted?"WAIT / STALE":"NO SENSOR");
